@@ -182,6 +182,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
   .fab{bottom:78px}
   .g2,.g3,.g4,.hub{grid-template-columns:1fr} .blk{grid-template-columns:78px 1fr} .blk .act{grid-column:1/-1}
   .card{padding:14px}
+  .g2.keep{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px} .g2.keep .ring{width:72px;height:72px} .g2.keep .ring>span{width:56px;height:56px;font-size:16px}
   .goals-list li{flex-wrap:wrap;gap:4px 8px} .goals-list li>span:last-child{flex-basis:100%;padding-inline-start:4px}
 }
 @media print{ .side,.top .btn,.fab,.noprint{display:none!important} .app{display:block} .card{break-inside:avoid;box-shadow:none} body{background:#fff;color:#000} }
@@ -234,7 +235,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1435';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1441';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -2029,20 +2030,20 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const isQ = b => S.qplan && S.qplan.prog && (b.type === 'quran' || b.taskId === 'goal:g-q-asr'); // shown inside the Quran element instead
     const items = plan.blocks.filter(b => b.type !== 'prayer' && b.type !== 'routine' && !isQ(b));
     const energy = (S.energy.filter(e => e.date === d).slice(-1)[0] || {}).level;
-    return `${!SNAP && !Object.keys(S.events || {}).length ? `<div class="card" style="margin-bottom:14px;border-color:var(--accent)"><h2>أهلًا، خطوة واحدة</h2><div class="small">النسخة المنشورة لا تحمل بياناتك الشخصية. اختر ملف النسخة الاحتياطية (من فولدر Life OS في الدرايف) مرة واحدة، وبعدها كل شيء يبقى على هذا الجهاز.</div><label class="btn primary" style="margin-top:8px">استعادة نسختي<input type="file" accept=".json,application/json" data-a="restore" hidden></label></div>` : ''}${sleepCard(d)}${quranElement(d)}${hubCard(d)}
-    <div class="grid g3">
+    return `${!SNAP && !Object.keys(S.events || {}).length ? `<div class="card" style="margin-bottom:14px;border-color:var(--accent)"><h2>أهلًا، خطوة واحدة</h2><div class="small">النسخة المنشورة لا تحمل بياناتك الشخصية. اختر ملف النسخة الاحتياطية (من فولدر Life OS في الدرايف) مرة واحدة، وبعدها كل شيء يبقى على هذا الجهاز.</div><label class="btn primary" style="margin-top:8px">استعادة نسختي<input type="file" accept=".json,application/json" data-a="restore" hidden></label></div>` : ''}
+    <div class="grid g2 keep">
       <div class="card"><h2>الآن</h2>${cur ? `<div style="font-weight:600">${esc(cur.title)}</div><div class="muted small"><bdi dir="ltr">${cur.start}–${cur.end}</bdi></div>` : '<div class="muted">وقت متاح</div>'}<div class="muted small" style="margin-top:4px">غير محجوز حتى النوم: ${D(freeAfterNow(plan))}</div></div>
       <div class="card"><h2>إنجاز اليوم</h2><div class="row"><div class="ring" style="--p:${comp.pct}"><span>${E.ar(comp.pct)}٪</span></div><div class="small muted">${D(comp.done)} من ${D(comp.total)}<br>اضغط «تم» أو التقييم في الجدول، ولا شيء غيره.</div></div></div>
-      <div class="card" data-s="worship"><h2>الأوراد اليومية</h2><div class="chips">${(S.awrad || []).filter(w => !w.days || w.days.includes(E.weekday(d))).map(w => `<button title="${esc(w.note || '')}" data-a="wird" data-id="${w.id}" class="${log[w.id] ? 'on' : ''}">${log[w.id] ? '✓ ' : ''}${esc(w.title)}</button>`).join('')}</div></div>
     </div>
+      <div class="card" data-s="worship" style="margin-top:14px"><h2>الأوراد اليومية</h2><div class="chips">${(S.awrad || []).filter(w => !w.days || w.days.includes(E.weekday(d))).map(w => `<button title="${esc(w.note || '')}" data-a="wird" data-id="${w.id}" class="${log[w.id] ? 'on' : ''}">${log[w.id] ? '✓ ' : ''}${esc(w.title)}</button>`).join('')}</div></div>
     <div class="card" style="margin-top:14px"><h2>جدول اليوم<span class="sp"></span><button class="btn sm ghost" data-a="log">تسجيل نشاط</button><button class="btn sm" data-a="incident">طارئ أو تأخير</button><button class="btn sm primary" data-a="replan">إعادة تخطيط اليوم</button></h2>
       <div class="tl">${items.map(b => todayRow(b, d, n)).join('')}</div>
       ${plan.postponed.length ? `<div class="small muted" style="margin-top:8px">لم يتسع له اليوم: ${plan.postponed.map(p => esc(p.title) + ' (' + esc(p.reason.split(' — ')[0]) + ')').join('، ')}</div>` : ''}
-      <div class="small muted" style="margin-top:6px">الصلوات والقيلولة محجوزة ولا تظهر هنا، وحصص القرآن في عنصر «القرآن» فوق. <a href="#day">الجدول الكامل</a></div>
+      <div class="small muted" style="margin-top:6px">الصلوات والقيلولة محجوزة ولا تظهر هنا، وحصص القرآن في عنصر «القرآن» تحت. <a href="#day">الجدول الكامل</a></div>
     </div>
-    ${projectsToday()}
-    <div class="card" style="margin-top:14px"><h2>أهداف هذا الشهر<span class="sp"></span><a class="small" href="#goals2">تعديل</a></h2>
-      <ul class="list goals-list">${monthGoals().map(g => { const st = goalWeekStats(g); return `<li><span class="tag" data-s="${g.file}">${esc(E.FILES.find(f => f.id === g.file).name)}</span><span style="flex:1">${esc(g.title)}</span>${st.target ? `<span class="small muted">هذا الأسبوع ${E.ar(st.done)}/${E.ar(st.target)}</span>` : `<span class="small muted">${esc(g.note || '')}</span>`}</li>`; }).join('') || '<li class="empty">لم تختر أهدافًا للشهر بعد.</li>'}</ul></div>`;
+
+    <div style="margin-top:14px"></div>${quranElement(d)}${projectsToday()}
+    <div style="margin-top:14px"></div>${hubCard(d)}${sleepCard(d)}`;
   };
   function todayRow(b, d, n) {
     const st = blockState(b), past = b.endMin <= n, now = b.startMin <= n && b.endMin > n;
