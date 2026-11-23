@@ -243,6 +243,8 @@ ol.price{margin:0;padding-inline-start:20px;display:grid;gap:6px;font-size:14px}
 @media (max-width:760px){ .wirds{grid-template-columns:repeat(2,minmax(0,1fr))} }
 .sym{font-family:"Noto Naskh Arabic","Geeza Pro","Segoe UI",serif;font-weight:400}
 .days{display:inline-flex;gap:2px} .days label{display:inline-flex;flex-direction:column;align-items:center;font-size:10.5px;color:var(--muted)} .days input{margin:0}
+.stu{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px}
+fieldset.rng{border:1px solid var(--line);border-radius:10px;padding:6px 10px 10px;margin:0} fieldset.rng legend{font-size:13px;font-weight:600;padding:0 4px}
 
 </style>
 </head>
@@ -265,7 +267,7 @@ ol.price{margin:0;padding-inline-start:20px;display:grid;gap:6px;font-size:14px}
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1807';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1922';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1273,6 +1275,46 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     }
     return { refs, notes };
   }
+  // ---------------------------------------------------------------- v7 (23 Nov, 9 PM): paid teaching — students, sessions, 4-session cycles
+  const AYAT = [7,286,200,176,120,165,206,75,129,109,123,111,43,52,99,128,111,110,98,135,112,78,118,64,77,227,93,88,69,60,34,30,73,54,45,83,182,88,75,85,54,53,89,59,37,35,38,29,18,45,60,49,62,55,78,96,29,22,24,13,14,11,11,18,12,12,30,52,52,44,28,28,20,56,40,31,50,40,46,42,29,19,36,25,22,17,19,26,30,20,15,21,11,8,8,19,5,8,8,11,11,8,3,9,5,4,7,3,6,3,5,4,5,6];
+  const SURAHS = () => Q_SURAH.map(([, name], i) => ({ n: i + 1, name, ayat: AYAT[i] }));
+  const T_PARTS = { hifz: 'حفظ', review: 'مراجعة', hadith: 'حديث', tafsir: 'تفسير' };
+  /** Names never live in the code: students are added in the app (or by a one-time setup link) and stay on the device. */
+  function addStudent(state, x) {
+    const W = state.work2 = state.work2 || {}; W.students = W.students || [];
+    const st = { id: uid('stu'), name: String(x.name || '').trim(), match: String(x.match || x.name || '').trim(), parts: (x.parts || ['hifz']).filter(k => T_PARTS[k]), cycle: +x.cycle || 4, fee: +x.fee || 0, next: x.next || '', note: x.note || '', paid: {}, sessions: [] };
+    W.students.push(st); return st;
+  }
+  const studentOf = (state, id) => ((state.work2 || {}).students || []).find(x => x.id === id);
+  /** A part of a session: {s: surah number, from, to} or {text}. */
+  function rangeText(r) {
+    if (!r) return '';
+    if (r.s) { const S2 = SURAHS()[r.s - 1]; if (!S2) return r.text || ''; const all = (!r.from || r.from <= 1) && (!r.to || r.to >= S2.ayat); return `${S2.name}${all ? ' كاملة' : ` ${r.from || 1}–${r.to || S2.ayat}`}`; }
+    return r.text || '';
+  }
+  const rangeAyat = r => r && r.s ? Math.max(0, (r.to || AYAT[r.s - 1]) - (r.from || 1) + 1) : 0;
+  function addSession(state, sid, rec) {
+    const st = studentOf(state, sid); if (!st) return null;
+    const x = Object.assign({ id: uid('ses'), date: rec.date }, rec);
+    st.sessions.push(x); st.sessions.sort((a, b) => a.date.localeCompare(b.date));
+    if (rec.next != null) st.next = rec.next;
+    return x;
+  }
+  /** Which cycle and which session inside it (1..cycle). */
+  function sessionPos(st, ses) { const i = st.sessions.indexOf(ses); return { cycle: Math.floor(i / st.cycle) + 1, n: i % st.cycle + 1 }; }
+  function studentNow(st) { const i = st.sessions.length; return { cycle: Math.floor(i / st.cycle) + 1, n: i % st.cycle + 1 }; }
+  function cycleSummary(st, k) {
+    const ss = st.sessions.slice((k - 1) * st.cycle, k * st.cycle), lv = { good: 'جيد', mid: 'متوسط', weak: 'ضعيف' };
+    const sum = f => ss.reduce((a, x) => a + rangeAyat(x[f]), 0);
+    const lines = ss.map((x, i) => `الحصة ${i + 1} (${x.date.slice(8, 10)}/${+x.date.slice(5, 7)}): ` + Object.keys(T_PARTS).filter(f => st.parts.includes(f) && (f === 'hadith' || f === 'tafsir' ? x[f] : rangeText(x[f]))).map(f => `${T_PARTS[f]}: ${f === 'hadith' || f === 'tafsir' ? x[f] : rangeText(x[f])}`).join('، ') + (x.level ? ` — ${lv[x.level]}` : ''));
+    const levels = ss.filter(x => x.level).map(x => x.level), score = levels.length ? levels.reduce((a, l) => a + ({ good: 3, mid: 2, weak: 1 })[l], 0) / levels.length : null;
+    const tot = [st.parts.includes('hifz') && sum('hifz') && `حفظ ${sum('hifz')} آية`, st.parts.includes('review') && sum('review') && `مراجعة ${sum('review')} آية`, st.parts.includes('hadith') && `${ss.filter(x => x.hadith).length} حديث`, st.parts.includes('tafsir') && `تفسير ${ss.filter(x => x.tafsir).map(x => x.tafsir).join('، ') || '—'}`].filter(Boolean);
+    const overall = score == null ? '' : score >= 2.5 ? 'ممتاز، كمّل كده' : score >= 1.8 ? 'كويس، محتاج تثبيت' : 'محتاج مراجعة أكتر قبل الجديد';
+    const text = `ملخص الدورة ${k} (${ss.length} من ${st.cycle} حصص)\n${lines.join('\n')}\n\nالمجموع: ${tot.join(' · ')}${overall ? `\nالتقييم العام: ${overall}` : ''}`;
+    return { k, sessions: ss, done: ss.length >= st.cycle, totals: tot, score, overall, text, hifzAyat: sum('hifz'), reviewAyat: sum('review') };
+  }
+  /** The student whose calendar appointment this is (by the word the user chose, e.g. the name in the event title). */
+  const studentForEvent = (state, title) => ((state.work2 || {}).students || []).find(st => st.match && String(title).includes(st.match));
   /** One more reference typed in the app; it is appended to the stored text so the base stays one editable text. */
   function addPriceRef(state, service, price, unit, proposed) {
     const P = (state.work2 || {}).pricing, head = proposed ? 'إضافة (مقترح لم يعتمد):' : 'إضافة معتمدة:';
@@ -1643,7 +1685,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
 
   const API = { AREAS, CATS, AREA_TO_CAT, DAY_NAMES, SLOT, hm, toMin, dateStr, parseDate, addDays, weekday, localStamp, relMin, daysBetween, weekStart, range, uid, clone, ar, fmtDur, hash,
-    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, addTodayTask, extraDone, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
+    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, SURAHS, T_PARTS, addStudent, rangeText, rangeAyat, addSession, sessionPos, studentNow, cycleSummary, studentForEvent, addTodayTask, extraDone, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
     eventsOn, eventView, planDay, savePlan, currentPlan, replanDay, diffPlans, capacity, taskInstances, logActivity, addIncident, addEnergy, instanceDone,
     periodRange, analyze, reportText, assistant, assistantContext, pearson };
   g.LifeOS = API;
@@ -2238,6 +2280,9 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       const k = 'ev:' + b.eventId + '@' + d, es = S.taskStatus[k] || {};
       const ls = E.lessonFor(S, b.title);
       act2 = evAct(k, es, `<button class="btn sm" data-a="ev-st" data-k="${esc(k)}" data-v="done">تم ✓</button>`);
+      const stu = E.studentForEvent(S, b.title);
+      if (stu) { const done = stu.sessions.find(x => x.date === d), pos = done ? E.sessionPos(stu, done) : E.studentNow(stu);
+        title += `<div class="small">${done ? `✓ اتسجلت الحصة ${E.ar(pos.n)} من ${E.ar(stu.cycle)}: ${sesLine(stu, done)}` : `<button class="btn sm" data-a="ses-add" data-id="${stu.id}" data-d="${d}">سجّل الحصة ${E.ar(pos.n)} من ${E.ar(stu.cycle)}</button>${stu.next ? ` <span class="muted">المطلوب: ${esc(stu.next.split('\n')[0])}${stu.next.includes('\n') ? '…' : ''}</span>` : ''}`}</div>`; }
       if (ls) title += `<div class="small"><label><input type="checkbox" data-a="ev-prep" data-k="${esc(k)}" ${es.prep ? 'checked' : ''}> حضّرت</label>${es.prep ? '' : ` <span class="muted">(${esc(ls.prep)})</span>`}</div>`;
       const lg = ls ? [] : E.linkedGoals(S, b.title); // a lesson shows one «حضّرت» line instead of its prep goals
       if (lg.length) title += `<div class="small muted">${lg.map(g => { const st = goalWeekStats(g); return '↳ ' + esc(g.title) + (st.target ? ` (الأسبوع ده ${E.ar(st.done)}/${E.ar(st.target)})` : ''); }).join('<br>')}</div>`;
@@ -2540,11 +2585,69 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
         ${urgentBox()}${x.pendingTotal ? wedList() : '<div class="small muted" style="margin-top:8px">قائمة الأربعاء فاضية.</div>'}</div>
       <div class="card"><h2>آخر الحركات</h2><ul class="list">${L.map(e => `<li><span class="tag">${e.date.slice(5)}</span><span style="flex:1">${kindTxt(e)}${e.note ? ' — ' + esc(e.note) : ''}</span><strong>${money(e.amount)}</strong><button class="btn sm ghost danger" data-a="lg-del" data-id="${e.id}" aria-label="حذف">✕</button></li>`).join('') || '<li class="empty">لا حركات بعد. تفاصيل الحالات تفضل في الواتس، وهنا الأرقام بس.</li>'}</ul></div>`;
   }
+  // ------------------------------------------------------------- v7: teaching (paid): students, sessions, 4-session cycles
+  const LV = { good: 'جيد', mid: 'متوسط', weak: 'ضعيف' };
+  const sesLine = (st, x) => Object.keys(E.T_PARTS).filter(f => st.parts.includes(f)).map(f => { const v = f === 'hadith' || f === 'tafsir' ? x[f] : E.rangeText(x[f]); return v ? `${E.T_PARTS[f]}: ${esc(v)}` : ''; }).filter(Boolean).join(' · ') || '—';
+  function teachingCard() {
+    const L = (S.work2 || {}).students || [];
+    const evTitles = [...new Set(Object.values(S.events || {}).filter(e => !e.allDay).map(e => e.title))].sort();
+    return `<div class="card" data-s="work"><h2>التدريس</h2>${L.map(st => { const now = E.studentNow(st), k = now.cycle, cur = st.sessions.slice((k - 1) * st.cycle);
+      const past = []; for (let i = 1; i < k; i++) past.push(i);
+      return `<div class="stu"><div class="row"><b style="flex:1">${esc(st.name)}</b><span class="tag">الدورة ${E.ar(k)} · الحصة الجاية ${E.ar(now.n)} من ${E.ar(st.cycle)}</span></div>
+        ${st.next ? `<div class="small" style="margin-top:4px"><span class="muted">المرة الجاية:</span> ${esc(st.next).replace(/\n/g, '<br>')}</div>` : ''}
+        ${cur.length ? `<ol class="small" style="margin:6px 0;padding-inline-start:18px">${cur.map(x => `<li>${x.date.slice(8, 10)}/${+x.date.slice(5, 7)}: ${sesLine(st, x)}${x.level ? ` <span class="muted">(${LV[x.level]})</span>` : ''} <button class="linkbtn" data-a="ses-del" data-id="${st.id}" data-x="${x.id}">مسح</button></li>`).join('')}</ol>` : ''}
+        <div class="row" style="margin-top:6px;flex-wrap:wrap"><button class="btn sm primary" data-a="ses-add" data-id="${st.id}">＋ سجّل حصة</button>${cur.length ? `<button class="btn sm" data-a="ses-sum" data-id="${st.id}" data-k="${k}">ملخص الدورة دي</button>` : ''}
+          ${past.map(i => `<span class="tag">الدورة ${E.ar(i)} <button class="linkbtn" data-a="ses-sum" data-id="${st.id}" data-k="${i}">الملخص</button> <label><input type="checkbox" data-a="stu-paid" data-id="${st.id}" data-k="${i}" ${st.paid[i] ? 'checked' : ''}> اتدفعت${st.fee ? ' ' + money(st.fee) : ''}</label></span>`).join('')}</div>
+        <details style="margin-top:6px"><summary class="small muted">تعديل بيانات ${esc(st.name)}</summary><div class="row" style="flex-wrap:wrap;margin-top:6px">
+          <input type="text" value="${esc(st.name)}" data-a="stu-edit" data-f="name" data-id="${st.id}" placeholder="الاسم" style="flex:1">
+          <input type="text" value="${esc(st.match)}" data-a="stu-edit" data-f="match" data-id="${st.id}" placeholder="كلمة من اسم الميعاد" style="flex:1">
+          <input type="number" value="${st.fee || ''}" data-a="stu-edit" data-f="fee" data-id="${st.id}" placeholder="الأجر كل دورة" style="width:120px">
+          <span class="small">${Object.entries(E.T_PARTS).map(([f, l]) => `<label><input type="checkbox" data-a="stu-part" data-id="${st.id}" data-f="${f}" ${st.parts.includes(f) ? 'checked' : ''}> ${l}</label>`).join(' ')}</span>
+          <textarea data-a="stu-edit" data-f="next" data-id="${st.id}" rows="2" placeholder="المطلوب المرة الجاية" style="flex-basis:100%">${esc(st.next || '')}</textarea>
+          <button class="btn sm ghost danger" data-a="stu-del" data-id="${st.id}">مسح الطالب</button></div></details></div>`; }).join('') || '<div class="small muted">لسه مفيش طلاب.</div>'}
+      <details style="margin-top:8px"><summary class="small">＋ طالب جديد</summary><form data-form="stu-add" style="display:grid;gap:8px;margin-top:6px">
+        <input type="text" name="name" required placeholder="الاسم"><label class="f">ميعاده في التقويم<select name="match"><option value="">—</option>${evTitles.map(t => `<option>${esc(t)}</option>`).join('')}</select></label>
+        <div class="small">${Object.entries(E.T_PARTS).map(([f, l]) => `<label><input type="checkbox" name="p-${f}" ${f === 'hifz' ? 'checked' : ''}> ${l}</label>`).join(' ')}</div>
+        <div class="row"><input type="number" name="fee" placeholder="الأجر كل ٤ حصص" style="flex:1"><input type="number" name="cycle" value="4" min="1" style="width:80px" aria-label="عدد الحصص في الدورة"></div>
+        <button class="btn sm primary" style="justify-self:start">إضافة</button></form></details></div>`;
+  }
+  const surahOpts = sel => `<option value="">—</option>` + E.SURAHS().map(x => `<option value="${x.n}" ${+sel === x.n ? 'selected' : ''}>${E.ar(x.n)}. ${x.name} (${E.ar(x.ayat)})</option>`).join('');
+  function sessionDialog(id, d) {
+    const st = (S.work2.students || []).find(x => x.id === id); if (!st) return;
+    const now = E.studentNow(st), last = st.sessions[st.sessions.length - 1] || {};
+    const rangeF = (f, l) => `<fieldset class="rng"><legend>${l}</legend><div class="row" style="flex-wrap:wrap"><select name="${f}-s" style="flex:2;min-width:150px">${surahOpts(last[f] && last[f].s)}</select><input type="number" name="${f}-from" min="1" placeholder="من آية" style="width:90px"><input type="number" name="${f}-to" min="1" placeholder="لآية" style="width:90px"></div><input type="text" name="${f}-text" placeholder="أو اكتبها (مثلاً: ما تيسر من جزء عم)" style="margin-top:6px;width:100%"></fieldset>`;
+    modal(`<h2>${esc(st.name)}: الحصة ${E.ar(now.n)} من ${E.ar(st.cycle)} <span class="tag">الدورة ${E.ar(now.cycle)}</span></h2>
+      ${st.next ? `<div class="small" style="margin-bottom:8px"><span class="muted">كان المطلوب:</span> ${esc(st.next).replace(/\n/g, '<br>')}</div>` : ''}
+      <form data-form="ses" data-id="${st.id}" style="display:grid;gap:8px"><label class="f">التاريخ<input type="date" name="date" value="${d || today()}"></label>
+        ${st.parts.includes('hifz') ? rangeF('hifz', 'الحفظ') : ''}${st.parts.includes('review') ? rangeF('review', 'المراجعة') : ''}
+        ${st.parts.includes('hadith') ? `<label class="f">الحديث<input type="text" name="hadith" placeholder="رقم الحديث أو اسمه"></label>` : ''}
+        ${st.parts.includes('tafsir') ? `<label class="f">التفسير<input type="text" name="tafsir" placeholder="مثلاً: القارعة"></label>` : ''}
+        <div class="chips">${Object.entries(LV).map(([k, l]) => `<label class="chip"><input type="radio" name="level" value="${k}"> ${l}</label>`).join('')}</div>
+        <label class="f">المطلوب المرة الجاية<textarea name="next" rows="3" placeholder="حفظ: …\nالمراجعة: …"></textarea></label>
+        <button class="btn primary">احفظ الحصة</button></form>`);
+  }
+  function summaryDialog(id, k) {
+    const st = (S.work2.students || []).find(x => x.id === id); if (!st) return;
+    const x = E.cycleSummary(st, k), t = `*${st.name}* — ${x.text}`;
+    modal(`<h2>${esc(st.name)}: ملخص الدورة ${E.ar(k)}</h2><pre class="rep" style="white-space:pre-wrap">${esc(t)}</pre><div class="row"><button class="btn primary" id="sum-copy">نسخ للواتس</button><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(t)}">فتح واتساب</a></div>`, m => {
+      $('#sum-copy', m).addEventListener('click', () => copyText(t)); });
+  }
+  /** One-tap setup link from Claude: «#students=…» (names stay out of the public code). */
+  function takeStudents() {
+    if (!/^#students=/.test(location.hash)) return false;
+    try {
+      const b = location.hash.slice(10).replace(/-/g, '+').replace(/_/g, '/'), L = JSON.parse(decodeURIComponent(escape(atob(b))));
+      history.replaceState(null, '', location.pathname + location.search + '#file?f=work');
+      let n = 0; for (const x of L) { const ex = (S.work2.students || []).find(y => y.name === x.name); if (ex) { if (x.next) ex.next = x.next; } else { E.addStudent(S, x); n++; } }
+      save(); toast(`اتضاف ${E.ar(n)} طالب`);
+    } catch (e) { history.replaceState(null, '', location.pathname + location.search + '#today'); toast('الرابط ده مش سليم'); }
+    render(); return true;
+  }
   function workFile() {
     const W = S.work2;
     return `<div class="card"><h2>العمل البحثي</h2><ul class="list">${W.research.map(r => `<li><input type="checkbox" data-a="rs-chk" data-id="${r.id}" ${r.received ? 'checked' : ''} aria-label="وصل"><input type="text" value="${esc(r.title)}" data-a="rs-edit" data-f="title" data-id="${r.id}" style="flex:1;border:0;background:transparent;font:inherit;color:inherit"><input type="number" value="${r.amount || 0}" data-a="rs-edit" data-f="amount" data-id="${r.id}" style="width:90px"><span class="small muted">${r.received ? 'وصل' : 'لسه'}</span><button class="btn sm ghost danger" data-a="rs-del" data-id="${r.id}">✕</button></li>`).join('') || '<li class="empty">لا أعمال.</li>'}</ul>
         <div style="margin-top:6px"><button class="btn sm" data-a="quick" data-k="research">＋ عمل بحثي</button></div></div>
-      ${pricingCard()}${salesCard()}`;
+      ${teachingCard()}${pricingCard()}${salesCard()}`;
   }
   function salesCard() {
     const L = (S.work2.sales || []).filter(x => x.date.slice(0, 7) === today().slice(0, 7)).slice().reverse(), sum = k => L.reduce((a, x) => a + x[k], 0);
@@ -2942,6 +3045,10 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       case 'qismail': E.ismailRecited(S, today(), t.dataset.r); save(); render(); toast('سُجّل التسميع، والحزب التالي جاهز'); break;
       case 'assistant': assistantDialog(); break;
       case 'log-del': if (confirm('أشيل النشاط ده؟')) { S.logs = S.logs.filter(x => x.id !== t.dataset.id); save(); render(); } break;
+      case 'ses-add': sessionDialog(t.dataset.id, t.dataset.d); break;
+      case 'ses-sum': summaryDialog(t.dataset.id, +t.dataset.k); break;
+      case 'ses-del': if (confirm('أمسح الحصة دي؟')) { const st = S.work2.students.find(x => x.id === t.dataset.id); st.sessions = st.sessions.filter(x => x.id !== t.dataset.x); save(); render(); } break;
+      case 'stu-del': if (confirm('أمسح الطالب وكل حصصه؟')) { S.work2.students = S.work2.students.filter(x => x.id !== t.dataset.id); save(); render(); } break;
       case 'idea-del': if (confirm('حذف الفكرة؟')) { S.ideas = S.ideas.filter(x => x.id !== t.dataset.id); save(); render(); } break;
       case 'cal-sync': syncCalendarLive(); break;
     }
@@ -2967,6 +3074,9 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     if (a === 'k-step') { const it = S.knowledge.items.find(x => x.id === t.dataset.id); it.steps[+t.dataset.i].done = t.checked; save(); return; }
     if (a === 'wird-edit') { const w = S.awrad[+t.dataset.i], f = t.dataset.f || 'title'; if (f === 'time' && !t.value.trim()) delete w.time; else w[f] = t.value.trim(); save(); return; }
     if (a === 'wird-day') { const w = S.awrad[+t.dataset.i], k = +t.dataset.k, cur = w.days || [0, 1, 2, 3, 4, 5, 6]; const nd = t.checked ? [...new Set([...cur, k])].sort() : cur.filter(x => x !== k); w.days = nd.length === 7 ? undefined : nd; if (!w.days) delete w.days; if (w.id === 'w-sport') { const g = (S.bigGoals || []).find(x => x.id === 'g-sport'); if (g) { g.days = nd; E.syncGoalTasks(S); } } save(); return; }
+    if (a === 'stu-edit') { const st = S.work2.students.find(x => x.id === t.dataset.id), f = t.dataset.f; st[f] = f === 'fee' ? +t.value || 0 : t.value.trim(); save(); return; }
+    if (a === 'stu-part') { const st = S.work2.students.find(x => x.id === t.dataset.id), f = t.dataset.f; st.parts = t.checked ? [...new Set([...st.parts, f])] : st.parts.filter(x => x !== f); save(); return; }
+    if (a === 'stu-paid') { const st = S.work2.students.find(x => x.id === t.dataset.id); st.paid[t.dataset.k] = t.checked; save(); return; }
     if (a === 'idea-edit') { const x = (S.ideas || []).find(y => y.id === t.dataset.id); if (x) { x.text = t.value.trim(); save(); } return; }
     if (a === 'rs-edit') { const x = S.work2.research.find(y => y.id === t.dataset.id); if (x) { x[t.dataset.f] = t.dataset.f === 'amount' ? +t.value || 0 : t.value.trim(); save(); } return; }
     if (a === 'pick-day') location.hash = 'day?d=' + t.value;
@@ -3005,6 +3115,10 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       if (f.dataset.form === 'q-personal') E.addLedger(S, { date: v.date, kind: 'personal', amount: v.amount, sign: v.sign, note: v.note }).acc = (v.acc || '').trim();
       if (f.dataset.form === 'q-sale') { const W = S.work2; W.sales = W.sales || []; const pn = v.product.trim(); W.products = W.products || []; if (pn && !W.products.some(x => x.name === pn)) W.products.push({ name: pn, cost: +v.cost || 0, price: +v.price || 0 });
         W.sales.push({ id: E.uid('sl'), date: v.date, product: pn, price: +v.price || 0, cost: +v.cost || 0, profit: (+v.price || 0) - (+v.cost || 0) }); }
+      if (f.dataset.form === 'stu-add') E.addStudent(S, { name: v.name, match: v.match || v.name, parts: Object.keys(E.T_PARTS).filter(k => v['p-' + k] === 'on'), fee: v.fee, cycle: v.cycle });
+      if (f.dataset.form === 'ses') { const rng = k => v[k + '-s'] ? { s: +v[k + '-s'], from: +v[k + '-from'] || null, to: +v[k + '-to'] || null } : (v[k + '-text'] || '').trim() ? { text: v[k + '-text'].trim() } : null;
+        const st = S.work2.students.find(x => x.id === f.dataset.id), x = E.addSession(S, st.id, { date: v.date, hifz: rng('hifz'), review: rng('review'), hadith: (v.hadith || '').trim(), tafsir: (v.tafsir || '').trim(), level: v.level || null, next: (v.next || '').trim() });
+        const pos = E.sessionPos(st, x); closeModal(); save(); render(); toast(pos.n === st.cycle ? `خلصت الدورة ${E.ar(pos.cycle)}، الملخص جاهز` : `اتسجلت الحصة ${E.ar(pos.n)} من ${E.ar(st.cycle)}`); return; }
       if (f.dataset.form === 'idea-add') { E.addIdea(S, v.text, v.cat, today()); toast('اتحفظت'); }
       if (f.dataset.form === 'pricing-set') { const P = E.setPricing(S, v.text); toast(`اتحفظت: ${P.refs.length} سعر`); }
       if (f.dataset.form === 'price-add') { const P = E.addPriceRef(S, v.service, v.price, v.unit, v.proposed === 'on'); toast(`اتضاف · القاعدة فيها ${E.ar(P.refs.length)} سعر`); }
@@ -3061,7 +3175,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     } catch (e) { history.replaceState(null, '', location.pathname + location.search + '#today'); toast('الرابط ده مش سليم'); }
     render(); return true;
   }
-  window.addEventListener('hashchange', () => { if (takeProducts() || takePricing()) return; if (location.hash === '#sync') { history.replaceState(null, '', location.pathname + location.search + '#today'); render(); syncCalendarLive(); } else render(); });
+  window.addEventListener('hashchange', () => { if (takeProducts() || takePricing() || takeStudents()) return; if (location.hash === '#sync') { history.replaceState(null, '', location.pathname + location.search + '#today'); render(); syncCalendarLive(); } else render(); });
   window.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
   // ------------------------------------------------------------- shell
@@ -3092,7 +3206,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     if (gBack && lsGet('lifeos-after') === 'backup') { lsSet('lifeos-after', null); driveBackup(tokenNow()); }
     else if (gBack) syncCalendarLive();
     else if (tokenNow() && (!S.sync.lastDrive || S.sync.lastDrive.slice(0, 10) !== today())) driveBackup(tokenNow(), true);
-    else if (takeProducts() || takePricing()) {}
+    else if (takeProducts() || takePricing() || takeStudents()) {}
     else if (location.hash === '#sync') { history.replaceState(null, '', location.pathname + location.search + '#today'); render(); syncCalendarLive(); }
     setInterval(() => { if (!$('#modal') && route() === 'home') render(); }, 60000);
     if ((Store.mode === 'server' || location.protocol === 'https:') && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { }); // installed copy works offline
