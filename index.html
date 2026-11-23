@@ -130,7 +130,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0311';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0420';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1113,6 +1113,21 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     return out.filter(b => b.items.length);
   }
   /** Batch items go on the Wednesday list. Money is recorded when it reaches the user (opts.received), not when the group sends the batch. A batch already pasted is skipped. */
+  /** Requests in a pasted message: lines asking for a case (no amount), e.g. «مطلوب حالة عليها ديون». */
+  function parseRequests(text) {
+    const out = [];
+    for (const raw of String(text).split(/\r?\n/)) {
+      const line = raw.replace(/^\s*\[[^\]]*\]\s*[^:]{1,60}:\s*/, '').replace(/\*/g, '').replace(/^[-•·\s]+/, '').trim();
+      if (!line || /^\d/.test(AR_DIG(line)) || /^(دفعة|إجمالي|\+|\()/.test(line)) continue;
+      if (/مطلوب|طلب|محتاج|عايزين|نريد|نحتاج/.test(line)) out.push(line.replace(/:$/, ''));
+    }
+    return out;
+  }
+  function addRequests(state, list, date) {
+    const R = state.charity.requests = state.charity.requests || []; let n = 0;
+    for (const t of list) if (!R.some(r => r.text === t && !r.done)) { R.push({ id: uid('rq'), date, text: t, done: false }); n++; }
+    return n;
+  }
   /** Urgent case paid from money on hand, outside any batch message. It waits to be matched with an item of a later batch. */
   function addUrgent(state, x) {
     const e = addLedger(state, { date: x.date, kind: 'out', amount: x.amount, cat: x.cat, note: x.note });
@@ -1222,7 +1237,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
 
   const API = { AREAS, CATS, AREA_TO_CAT, DAY_NAMES, SLOT, hm, toMin, dateStr, parseDate, addDays, weekday, localStamp, relMin, daysBetween, weekStart, range, uid, clone, ar, fmtDur, hash,
-    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, seedSleep, logSleep, sleepStats, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
+    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, seedSleep, logSleep, sleepStats, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
     eventsOn, eventView, planDay, savePlan, currentPlan, replanDay, diffPlans, capacity, taskInstances, logActivity, addIncident, addEnergy, instanceDone,
     periodRange, analyze, reportText, assistant, assistantContext, pearson };
   g.LifeOS = API;
@@ -1859,7 +1874,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   function quickForm(k) {
     const d = `<input type="hidden" name="date" value="${today()}">`, note = (ph) => `<label class="f">ملاحظة<input type="text" name="note" placeholder="${ph}"></label>`;
     const amt = `<label class="f">المبلغ<input type="number" name="amount" min="0" step="1" inputmode="numeric" required></label>`;
-    if (k === 'paste') return `<h2>لصق رسالة الجروب</h2><p class="small muted">انسخ رسالة أو أكتر من رسايل «دفعة» زي ما هي والصقها هنا. البنود بتروح لقائمة الأربعاء بتفاصيلها، واسم اللي باعت الرسالة مش بيتحفظ.</p>
+    if (k === 'paste') return `<h2>لصق رسالة الجروب</h2><p class="small muted">انسخ رسالة أو أكتر من رسايل «دفعة» زي ما هي والصقها هنا. البنود بتروح لقائمة الأربعاء بتفاصيلها، والطلبات (زي «مطلوب حالة…») بتروح للطلبات. اسم اللي باعت الرسالة مش بيتحفظ.</p>
       <form class="form" data-form="q-paste"><textarea name="txt" rows="7" required style="width:100%"></textarea><div id="paste-prev" class="small"></div>
       <label class="f"><span><input type="checkbox" name="received"> فلوسها وصلتني خلاص</span></label><label class="f"><span><input type="checkbox" name="done"> دي اتوزعت قبل كده (أرشيف بس)</span></label><button class="btn primary">سجّل</button></form>`;
     if (k === 'urgent') return `<h2>حالة عاجلة (اتصرفت من اللي معايا)</h2><form class="form" data-form="q-urgent">${d}${amt}<label class="f">التصنيف<select name="cat">${E.CHARITY_CATS.map(c => `<option>${c}</option>`).join('')}</select></label><label class="f">إيه هي<input type="text" name="note" required></label>
@@ -1926,9 +1941,10 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   function pastePreview(m) {
     const ta = m.querySelector('textarea'), box = m.querySelector('#paste-prev');
     ta.addEventListener('input', () => {
-      const b = E.matchUrgent(S, E.parseBatches(ta.value, +today().slice(0, 4))), U = b.flatMap(x => x.items.filter(i => i.urgentId));
+      const b = E.matchUrgent(S, E.parseBatches(ta.value, +today().slice(0, 4))), U = b.flatMap(x => x.items.filter(i => i.urgentId)), Q = E.parseRequests(ta.value);
       box.innerHTML = (U.length ? `<div style="color:var(--warn,#d97706);margin:6px 0">⚠ ${U.map(i => `${money(i.amount)} ${esc(i.list)} اتصرفت عاجل يوم ${i.urgentDate.slice(8)}/${i.urgentDate.slice(5, 7)} (${esc(i.urgentNote)})`).join('، ')}. مش هتتحسب تاني.</div>` : '') + (b.length ? `<ul class="list">${b.map(x => `<li><span style="flex:1"><strong>دفعة ${x.date.slice(8)}/${x.date.slice(5, 7)}</strong> ${x.ok ? '' : `<span style="color:var(--bad)">(المكتوب ${money(x.stated)})</span>`}<br><span class="muted">${x.items.map(i => esc(i.list) + ' ' + money(i.amount)).join('، ')}</span></span><strong>${money(x.total)}</strong></li>`).join('')}</ul>`
-        : (ta.value.trim() ? '<span class="muted">مش لاقي «دفعة يوم-شهر» في النص.</span>' : ''));
+        : (ta.value.trim() && !Q.length ? '<span class="muted">مش لاقي «دفعة يوم-شهر» ولا طلبات في النص.</span>' : ''))
+        + (Q.length ? `<div style="margin-top:6px"><strong>طلبات:</strong> ${Q.map(esc).join('، ')}</div>` : '');
     });
   }
   /** Wednesday: how much to take, split into envelopes per list; what the money on hand doesn't cover waits or comes from the user's pocket. */
@@ -1945,11 +1961,15 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   function charityFile() {
     const x = E.ledgerSummary(S), L = (S.charity.ledger || []).slice().reverse().slice(0, 40), todo = S.charity.todo || [];
     const kindTxt = e => e.kind === 'in' ? 'وصل' : e.kind === 'out' ? (e.urgent ? 'عاجل' : e.status === 'done' ? 'اتوزع' : 'للأربعاء') + ' · ' + esc(e.list || e.cat) : (e.sign < 0 ? 'عليّا لـ ' : 'ليّا من ') + esc(e.acc || '—') + (e.settled ? ' · اتسوّى' : '');
-    return `<div class="card"><h2>الأهداف</h2><ul class="list">${todo.map(t => `<li><label style="flex:1"><input type="checkbox" data-a="ctodo-chk" data-id="${t.id}" ${t.done ? 'checked' : ''}> ${esc(t.title)}</label><button class="btn sm ghost danger" data-a="ctodo-del" data-id="${t.id}">✕</button></li>`).join('') || '<li class="empty">لا أهداف.</li>'}</ul>
-        <form class="row" data-form="q-ctodo" style="margin-top:6px"><input type="text" name="title" placeholder="هدف جديد" required style="flex:1"><button class="btn sm">إضافة</button></form>${listsBox()}${urgentBox()}</div>
-      <div class="card"><h2>الحسابات</h2><div class="small" style="display:grid;gap:4px"><div>وصل لي: <strong>${money(x.inTotal)}</strong> · اتوزع: <strong>${money(x.outDone)}</strong></div><div>معايا دلوقتي: <strong>${money(x.onHand)}</strong></div>${accLines()}</div>
+    const R = S.charity.requests || [];
+    return `<div class="card"><h2>المستهدفات</h2><ul class="list">${todo.map(t => `<li><label style="flex:1"><input type="checkbox" data-a="ctodo-chk" data-id="${t.id}" ${t.done ? 'checked' : ''}> ${esc(t.title)}</label><button class="btn sm ghost danger" data-a="ctodo-del" data-id="${t.id}">✕</button></li>`).join('') || '<li class="empty">لا مستهدفات.</li>'}</ul>
+        <form class="row" data-form="q-ctodo" style="margin-top:6px"><input type="text" name="title" placeholder="مستهدف جديد" required style="flex:1"><button class="btn sm">إضافة</button></form></div>
+      <div class="card"><h2>الطلبات</h2><ul class="list">${R.filter(r => !r.done).map(r => `<li><label style="flex:1"><input type="checkbox" data-a="rq-chk" data-id="${r.id}"> ${esc(r.text)}</label><span class="small muted">${r.date.slice(5)}</span><button class="btn sm ghost danger" data-a="rq-del" data-id="${r.id}" aria-label="حذف">✕</button></li>`).join('') || '<li class="empty">مفيش طلبات مفتوحة.</li>'}</ul>
+        <form class="row" data-form="rq-add" style="margin-top:6px"><input type="text" name="text" placeholder="طلب جديد (مثلاً: حالة عليها ديون)" required style="flex:1"><button class="btn sm">إضافة</button></form>
+        ${R.some(r => r.done) ? `<div class="small muted" style="margin-top:4px">اتعمل: ${E.ar(R.filter(r => r.done).length)}</div>` : ''}</div>
+      <div class="card"><h2>الحسابات</h2>${listsBox().replace('margin-top:10px;border-top:1px solid var(--line);padding-top:8px;', 'margin-bottom:8px;')}<div class="small" style="display:grid;gap:4px"><div>وصل لي: <strong>${money(x.inTotal)}</strong> · اتوزع: <strong>${money(x.outDone)}</strong></div><div>معايا دلوقتي: <strong>${money(x.onHand)}</strong></div>${accLines()}</div>
         <div class="chips" style="margin-top:8px">${QUICK.filter(q => q[2] === 'خيري').map(([k, l]) => `<button data-a="quick" data-k="${k}">＋ ${l}</button>`).join('')}</div>
-        ${x.pendingTotal ? wedList() : '<div class="small muted" style="margin-top:8px">قائمة الأربعاء فاضية.</div>'}</div>
+        ${urgentBox()}${x.pendingTotal ? wedList() : '<div class="small muted" style="margin-top:8px">قائمة الأربعاء فاضية.</div>'}</div>
       <div class="card"><h2>آخر الحركات</h2><ul class="list">${L.map(e => `<li><span class="tag">${e.date.slice(5)}</span><span style="flex:1">${kindTxt(e)}${e.note ? ' — ' + esc(e.note) : ''}</span><strong>${money(e.amount)}</strong><button class="btn sm ghost danger" data-a="lg-del" data-id="${e.id}" aria-label="حذف">✕</button></li>`).join('') || '<li class="empty">لا حركات بعد. تفاصيل الحالات تفضل في الواتس، وهنا الأرقام بس.</li>'}</ul></div>`;
   }
   function workFile() {
@@ -2198,6 +2218,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       case 'distribute': if (confirm(t.dataset.m === 'all' ? 'تعلّم كل القائمة اتوزعت، والناقص يتسجل ليك؟' : 'تعلّم البنود اللي اتغطت إنها اتوزعت؟')) { E.distribute(S, today(), t.dataset.m); save(); render(); toast('اتسجل التوزيع'); } break;
       case 'lg-del': if (confirm('حذف الحركة دي؟')) { S.charity.ledger = S.charity.ledger.filter(y => y.id !== t.dataset.id); save(); render(); } break;
       case 'rs-del': if (confirm('حذف العمل ده؟')) { S.work2.research = S.work2.research.filter(y => y.id !== t.dataset.id); save(); render(); } break;
+      case 'rq-del': if (confirm('حذف الطلب ده؟')) { S.charity.requests = S.charity.requests.filter(y => y.id !== t.dataset.id); save(); render(); } break;
       case 'wed-copy': copyText(wedText()); break;
       case 'urg-close': { const x = S.charity.ledger.find(y => y.id === t.dataset.id); x.coveredBy = 'closed'; save(); render(); break; }
       case 'pr-settle': { const x = S.charity.ledger.find(y => y.id === t.dataset.id); x.settled = today(); save(); render(); toast(x.sign > 0 ? 'اتسجل إنك خدتهم' : 'اتسجل إنك رجّعتهم'); break; }
@@ -2226,6 +2247,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       for (const d of Object.keys(S.plans)) if (d > today()) delete S.plans[d];
       save(); if (f === 'status') render(); toast('حُفظ، وسيظهر في الجدول من الغد'); return; }
     if (a === 'ctodo-chk') { S.charity.todo.find(y => y.id === t.dataset.id).done = t.checked; save(); return; }
+    if (a === 'rq-chk') { const r = S.charity.requests.find(y => y.id === t.dataset.id); r.done = today(); save(); render(); toast('تم ✓'); return; }
     if (a === 'rs-chk') { S.work2.research.find(y => y.id === t.dataset.id).received = t.checked; save(); render(); return; }
     if (a === 'dv-chk') { S.work2.devices.find(y => y.id === t.dataset.id).delivered = t.checked; save(); return; }
     if (a === 'k-edit') { const it = S.knowledge.items.find(x => x.id === t.dataset.id); it[t.dataset.f] = t.value; save(); return; }
@@ -2258,8 +2280,9 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       if (f.dataset.form === 'case-add') S.charity.cases.push({ name: v.name, need: v.need, date: today() });
       if (f.dataset.form === 'k-add') S.knowledge.items.push({ id: E.uid('k'), track: f.dataset.track, title: v.title, status: 'todo', when: '', prep: '', steps: [], note: '' });
       if (f.dataset.form === 'k-step-add') S.knowledge.items.find(x => x.id === f.dataset.id).steps.push({ t: v.t, done: false });
-      if (f.dataset.form === 'q-paste') { const r = E.addBatches(S, E.matchUrgent(S, E.parseBatches(v.txt, +today().slice(0, 4))), { received: v.received === 'on', distributed: v.done === 'on' }); closeModal(); save(); render(); toast(r.added ? `اتسجل ${E.ar(r.added)} دفعة${r.urgent ? ` · ${E.ar(r.urgent)} بند كان اتصرف عاجل` : ''}${r.skipped ? ` · ${E.ar(r.skipped)} كانت متسجلة` : ''}` : (r.skipped ? 'الدفعات دي متسجلة قبل كده' : 'ملقتش دفعات')); return; }
+      if (f.dataset.form === 'q-paste') { const nq = E.addRequests(S, E.parseRequests(v.txt), today()); const r = E.addBatches(S, E.matchUrgent(S, E.parseBatches(v.txt, +today().slice(0, 4))), { received: v.received === 'on', distributed: v.done === 'on' }); closeModal(); save(); render(); toast((nq ? `${E.ar(nq)} طلب اتضاف · ` : '') + (r.added ? `اتسجل ${E.ar(r.added)} دفعة${r.urgent ? ` · ${E.ar(r.urgent)} بند كان اتصرف عاجل` : ''}${r.skipped ? ` · ${E.ar(r.skipped)} كانت متسجلة` : ''}` : (r.skipped ? 'الدفعات دي متسجلة قبل كده' : nq ? '' : 'ملقتش دفعات'))); return; }
       if (f.dataset.form === 'lastlist' && +v.n) { S.charity.lastList = Object.assign(S.charity.lastList || {}, { [f.dataset.c]: +v.n }); }
+      if (f.dataset.form === 'rq-add') E.addRequests(S, [v.text.trim()], today());
       if (f.dataset.form === 'q-urgent') E.addUrgent(S, { date: v.date, amount: +v.amount, cat: v.cat, note: v.note });
       if (f.dataset.form === 'q-in') E.addLedger(S, { date: v.date, kind: 'in', amount: v.amount, note: v.note });
       if (f.dataset.form === 'q-out') E.addLedger(S, { date: v.date, kind: 'out', amount: v.amount, cat: v.cat, note: v.note });
