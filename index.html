@@ -130,7 +130,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0245';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0247';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1047,7 +1047,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       hours: +(avg(rows.map(dur)) / 60).toFixed(1), naps: rows.filter(r => r.nap).length, onTime };
   }
   // ---------------------------------------------------------------- v3 (23 Nov): charity = checklist + cash ledger; work = research list + open devices
-  const CHARITY_CATS = ['ديون', 'مرضى', 'مطبخ', 'مسنات', 'شهريات', 'متفرقات'];
+  const CHARITY_CATS = ['ديون', 'مرضى', 'مطبخ', 'مسنات', 'شهريات', 'حالات عاجلة', 'متفرقات'];
   function seedV3(state) {
     if ((state.v3 || 0) >= 1) return false;
     const ch = state.charity = state.charity || { cases: [], expenses: [] };
@@ -1089,6 +1089,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     if (/دين|ديون|غارم/.test(t)) return 'ديون';
     if (/مرض|علاج|عملية|دواء|كشف|أشعة/.test(t)) return 'مرضى';
     if (/مطبخ|مفرمة|برجر|لحم|طبخ|أكل/.test(t)) return 'مطبخ';
+    if (/عاجل/.test(t)) return 'حالات عاجلة';
     if (/مسن/.test(t)) return 'مسنات';
     if (/شهري/.test(t)) return 'شهريات';
     return 'متفرقات';
@@ -1122,6 +1123,16 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       for (const x of b.items) { const e = addLedger(state, { date: b.date, kind: 'out', amount: x.amount, cat: x.cat, note: x.note }); e.list = x.list || x.cat; e.batch = b.date; if (opts.distributed) { e.status = 'done'; e.doneAt = b.date; } }
     }
     return { added, skipped };
+  }
+  /** Numbered lists (ديون ١٤٣، مرضى ١٧٤…): last one seen in pasted batches or set by hand, and the next number. */
+  function listNumbers(state) {
+    const man = (state.charity && state.charity.lastList) || {}, out = {};
+    for (const c of ['ديون', 'مرضى']) {
+      let n = +man[c] || 0;
+      for (const e of state.charity.ledger || []) { const m = String(e.list || '').match(new RegExp('^' + c + ' (\\d+)$')); if (m) n = Math.max(n, +m[1]); }
+      out[c] = { last: n || null, next: n ? n + 1 : null };
+    }
+    return out;
   }
   /** Wednesday plan: money on hand covers the oldest pending items first; envelopes per list (ديون ١٤٣، مرضى ١٧٢، مطبخ…). */
   function wedPlan(state) {
@@ -1192,7 +1203,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
 
   const API = { AREAS, CATS, AREA_TO_CAT, DAY_NAMES, SLOT, hm, toMin, dateStr, parseDate, addDays, weekday, localStamp, relMin, daysBetween, weekStart, range, uid, clone, ar, fmtDur, hash,
-    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, seedSleep, logSleep, sleepStats, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, parseBatches, addBatches, wedPlan, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
+    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, seedSleep, logSleep, sleepStats, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, parseBatches, addBatches, wedPlan, listNumbers, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
     eventsOn, eventView, planDay, savePlan, currentPlan, replanDay, diffPlans, capacity, taskInstances, logActivity, addIncident, addEnergy, instanceDone,
     periodRange, analyze, reportText, assistant, assistantContext, pearson };
   g.LifeOS = API;
@@ -1856,6 +1867,10 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       ${wed ? wedList() : ''}</div>`;
   }
   /** Open «ليّا / عليّا» items: each says with which account and for what; «خدتهم / رجّعتهم» settles it (kept in the history). */
+  function listsBox() {
+    const L = E.listNumbers(S);
+    return `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px;display:grid;gap:6px">${['ديون', 'مرضى'].map(c => `<form class="row" data-form="lastlist" data-c="${c}" style="gap:6px;align-items:center"><span style="flex:1">آخر قائمة ${c}: <strong>${L[c].last || '—'}</strong>${L[c].next ? ` · الجاية <strong>${L[c].next}</strong>` : ''}</span><input type="number" name="n" placeholder="رقم" inputmode="numeric" style="width:80px"><button class="btn sm ghost">تعديل</button></form>`).join('')}</div>`;
+  }
   function accLines() {
     const open = (S.charity.ledger || []).filter(e => e.kind === 'personal' && !e.settled);
     if (!open.length) return '';
@@ -1892,7 +1907,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const x = E.ledgerSummary(S), L = (S.charity.ledger || []).slice().reverse().slice(0, 40), todo = S.charity.todo || [];
     const kindTxt = e => e.kind === 'in' ? 'وصل' : e.kind === 'out' ? (e.status === 'done' ? 'اتوزع' : 'للأربعاء') + ' · ' + esc(e.list || e.cat) : (e.sign < 0 ? 'عليّا لـ ' : 'ليّا من ') + esc(e.acc || '—') + (e.settled ? ' · اتسوّى' : '');
     return `<div class="card"><h2>الأهداف</h2><ul class="list">${todo.map(t => `<li><label style="flex:1"><input type="checkbox" data-a="ctodo-chk" data-id="${t.id}" ${t.done ? 'checked' : ''}> ${esc(t.title)}</label><button class="btn sm ghost danger" data-a="ctodo-del" data-id="${t.id}">✕</button></li>`).join('') || '<li class="empty">لا أهداف.</li>'}</ul>
-        <form class="row" data-form="q-ctodo" style="margin-top:6px"><input type="text" name="title" placeholder="هدف جديد" required style="flex:1"><button class="btn sm">إضافة</button></form></div>
+        <form class="row" data-form="q-ctodo" style="margin-top:6px"><input type="text" name="title" placeholder="هدف جديد" required style="flex:1"><button class="btn sm">إضافة</button></form>${listsBox()}</div>
       <div class="card"><h2>الحسابات</h2><div class="small" style="display:grid;gap:4px"><div>وصل لي: <strong>${money(x.inTotal)}</strong> · اتوزع: <strong>${money(x.outDone)}</strong></div><div>معايا دلوقتي: <strong>${money(x.onHand)}</strong></div>${accLines()}</div>
         <div class="chips" style="margin-top:8px">${QUICK.filter(q => q[2] === 'خيري').map(([k, l]) => `<button data-a="quick" data-k="${k}">＋ ${l}</button>`).join('')}</div>
         ${x.pendingTotal ? wedList() : '<div class="small muted" style="margin-top:8px">قائمة الأربعاء فاضية.</div>'}</div>
@@ -2203,6 +2218,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       if (f.dataset.form === 'k-add') S.knowledge.items.push({ id: E.uid('k'), track: f.dataset.track, title: v.title, status: 'todo', when: '', prep: '', steps: [], note: '' });
       if (f.dataset.form === 'k-step-add') S.knowledge.items.find(x => x.id === f.dataset.id).steps.push({ t: v.t, done: false });
       if (f.dataset.form === 'q-paste') { const r = E.addBatches(S, E.parseBatches(v.txt, +today().slice(0, 4)), { received: v.received === 'on', distributed: v.done === 'on' }); closeModal(); save(); render(); toast(r.added ? `اتسجل ${E.ar(r.added)} دفعة${r.skipped ? ` · ${E.ar(r.skipped)} كانت متسجلة` : ''}` : (r.skipped ? 'الدفعات دي متسجلة قبل كده' : 'ملقتش دفعات')); return; }
+      if (f.dataset.form === 'lastlist' && +v.n) { S.charity.lastList = Object.assign(S.charity.lastList || {}, { [f.dataset.c]: +v.n }); }
       if (f.dataset.form === 'q-in') E.addLedger(S, { date: v.date, kind: 'in', amount: v.amount, note: v.note });
       if (f.dataset.form === 'q-out') E.addLedger(S, { date: v.date, kind: 'out', amount: v.amount, cat: v.cat, note: v.note });
       if (f.dataset.form === 'q-personal') E.addLedger(S, { date: v.date, kind: 'personal', amount: v.amount, sign: v.sign, note: v.note }).acc = (v.acc || '').trim();
