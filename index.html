@@ -130,7 +130,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0224';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0236';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -2202,7 +2202,8 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       if (f.dataset.form === 'q-in') E.addLedger(S, { date: v.date, kind: 'in', amount: v.amount, note: v.note });
       if (f.dataset.form === 'q-out') E.addLedger(S, { date: v.date, kind: 'out', amount: v.amount, cat: v.cat, note: v.note });
       if (f.dataset.form === 'q-personal') E.addLedger(S, { date: v.date, kind: 'personal', amount: v.amount, sign: v.sign, note: v.note }).acc = (v.acc || '').trim();
-      if (f.dataset.form === 'q-sale') { const W = S.work2; W.sales = W.sales || []; W.sales.push({ id: E.uid('sl'), date: v.date, product: v.product.trim(), price: +v.price || 0, cost: +v.cost || 0, profit: (+v.price || 0) - (+v.cost || 0) }); }
+      if (f.dataset.form === 'q-sale') { const W = S.work2; W.sales = W.sales || []; const pn = v.product.trim(); W.products = W.products || []; if (pn && !W.products.some(x => x.name === pn)) W.products.push({ name: pn, cost: +v.cost || 0, price: +v.price || 0 });
+        W.sales.push({ id: E.uid('sl'), date: v.date, product: pn, price: +v.price || 0, cost: +v.cost || 0, profit: (+v.price || 0) - (+v.cost || 0) }); }
       if (f.dataset.form === 'q-ctodo') S.charity.todo.push({ id: E.uid('ct'), title: v.title, done: false });
       if (f.dataset.form === 'q-research') S.work2.research.push({ id: E.uid('rs'), title: v.title, amount: +v.amount || 0, received: false });
       if (f.dataset.form === 'q-device') { const W = S.work2, dv = v.device.trim(); if (dv && !W.deviceTypes.includes(dv)) W.deviceTypes.push(dv); W.devices.push({ id: E.uid('dv'), device: dv, client: v.client, delivered: false, profit: +v.profit || 0 }); }
@@ -2232,7 +2233,18 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       save(); render(); toast('أُرسل إلى التقويم');
     } catch (e) { toast('لم يُرسل: ' + e.message); }
   }
-  window.addEventListener('hashchange', () => { if (location.hash === '#sync') { history.replaceState(null, '', location.pathname + location.search + '#today'); render(); syncCalendarLive(); } else render(); });
+  /** One-tap import of the product price list from a link sent in chat (the list never sits in the public code). */
+  function takeProducts() {
+    if (!/^#products=/.test(location.hash)) return false;
+    try {
+      const b = location.hash.slice(10).replace(/-/g, '+').replace(/_/g, '/'), rows = JSON.parse(decodeURIComponent(escape(atob(b))));
+      const P = rows.map(([name, cost, price]) => ({ name, cost: +cost || 0, price: +price || 0 }));
+      history.replaceState(null, '', location.pathname + location.search + '#file?f=work');
+      if (confirm(`أحفظ قائمة المنتجات (${E.ar(P.length)} صنف) بأسعار البيع والجملة؟`)) { S.work2.products = P; save(); toast('اتحفظت قائمة المنتجات'); }
+    } catch (e) { history.replaceState(null, '', location.pathname + location.search + '#today'); toast('الرابط ده مش سليم'); }
+    render(); return true;
+  }
+  window.addEventListener('hashchange', () => { if (takeProducts()) return; if (location.hash === '#sync') { history.replaceState(null, '', location.pathname + location.search + '#today'); render(); syncCalendarLive(); } else render(); });
   window.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
   // ------------------------------------------------------------- shell
@@ -2259,6 +2271,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     S = E.bootstrap(await Store.load(), SNAP);
     save(); render();
     if (gBack) syncCalendarLive();
+    else if (takeProducts()) {}
     else if (location.hash === '#sync') { history.replaceState(null, '', location.pathname + location.search + '#today'); render(); syncCalendarLive(); }
     setInterval(() => { if (!$('#modal') && route() === 'home') render(); }, 60000);
     if ((Store.mode === 'server' || location.protocol === 'https:') && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { }); // installed copy works offline
