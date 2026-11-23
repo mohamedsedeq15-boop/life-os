@@ -130,7 +130,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0157';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0200';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -2165,6 +2165,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     S = E.bootstrap(await Store.load(), SNAP);
     save(); render();
     if (gBack) syncCalendarLive();
+    else if (location.hash === '#sync') { history.replaceState(null, '', location.pathname + location.search + '#today'); render(); syncCalendarLive(); }
     setInterval(() => { if (!$('#modal') && route() === 'home') render(); }, 60000);
     if ((Store.mode === 'server' || location.protocol === 'https:') && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { }); // installed copy works offline
     window.addEventListener('pagehide', () => { try { S.savedAt = new Date().toISOString(); localStorage.setItem('lifeos-state', JSON.stringify(S)); } catch (e) { } });
