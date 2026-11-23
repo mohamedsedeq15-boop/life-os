@@ -130,7 +130,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0152';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0157';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1827,7 +1827,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   // ------------------------------------------------------------- live Google Calendar read (browser-only OAuth, read-only scope; no secrets in code)
   const GCID = () => (S.settings.googleClientId || window.LIFEOS_GCID || '').trim();
   // Redirect (implicit) flow: works inside an installed home-screen app where popups are blocked.
-  const REDIRECT = () => location.origin + location.pathname;
+  const REDIRECT = () => /github\.io$/.test(location.hostname) ? location.origin + '/life-os/' : location.origin + location.pathname; // must equal the URI registered at Google
   function lsGet(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
   function getToken() {
