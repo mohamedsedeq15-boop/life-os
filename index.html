@@ -257,7 +257,7 @@ ol.price{margin:0;padding-inline-start:20px;display:grid;gap:6px;font-size:14px}
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1517';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1539';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1242,7 +1242,10 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
         const ns = nums(price); if (!ns.length) { if (block) block.lines.push(line); continue; }
         const qty = nums(svc)[0];
         refs.push({ id: uid('pr'), service: svc, min: Math.min(...ns.filter(x => x >= 10 || ns.length === 1)), max: Math.max(...ns), unit: unit || (/للصفحه|الصفحه/.test(norm(price)) ? 'الصفحة' : 'العمل'), status, note: price, qty: qty || null });
-      } else if (block) block.lines.push(line);
+      } else if (block) { block.lines.push(line);
+        const m = line.match(/^[-•]?\s*متوسط\s+([^:：]{3,60})[:：]\s*([\d٠-٩][\d٠-٩\s–\-]*)\s*ريال/);
+        const u = m && UNIT_WORDS.find(([k]) => norm(m[1]).includes(k));
+        if (u) { const ns = nums(m[2]); refs.push({ id: uid('pr'), service: m[1].trim(), min: Math.min(...ns), max: Math.max(...ns), unit: u[1], status, note: line.replace(/^[-•]\s*/, ''), qty: null }); } }
       else notes.push({ title: '', lines: [line] });
     }
     return { refs, notes };
@@ -1359,14 +1362,20 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   const STEP_WHEN = { day: 'النهارده', week: 'الأسبوع ده', month: 'الشهر ده', later: 'بعدين' };
   /** Each scholarly project (file «projects») becomes a list of steps the user adds and ticks. Its time goal stays linked. */
   function seedProjects(state) {
-    if ((state.projV || 0) >= 1) return false;
+    if ((state.projV || 0) >= 1) return pauseProjectsV2(state);
     const ms = state.milestones || {};
     state.sciProjects = (state.bigGoals || []).filter(g => g.file === 'projects').map(g => ({
       id: uid('pj'), goalId: g.id, title: g.title.replace(/\s*:.*$/, ''), status: g.status === 'month' ? 'active' : g.status === 'done' ? 'done' : 'paused',
       note: g.status === 'archive' ? (g.note || '') : '',
       steps: (g.projectRef && ms[g.projectRef] || []).map(m => ({ id: uid('st'), title: m.name, done: !!m.done, when: 'later', doneAt: null })),
     }));
-    state.projV = 1; return true;
+    state.projV = 1; pauseProjectsV2(state); return true;
+  }
+  /** 23 Nov, 5:38 PM: the user paused every scholarly project until after Ramadan; Claude works on them meanwhile. */
+  function pauseProjectsV2(state) {
+    if ((state.projV || 0) !== 1) return false;
+    for (const p of state.sciProjects || []) if (p.status !== 'done') setProjectStatus(state, p.id, 'paused', 'متوقف لحد بعد رمضان. كلود بيشتغل عليه في الفترة دي.');
+    state.projV = 2; return true;
   }
   const projOf = (state, id) => (state.sciProjects || []).find(p => p.id === id);
   function addProject(state, title) {
@@ -2939,7 +2948,17 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     } catch (e) { history.replaceState(null, '', location.pathname + location.search + '#today'); toast('الرابط ده مش سليم'); }
     render(); return true;
   }
-  window.addEventListener('hashchange', () => { if (takeProducts()) return; if (location.hash === '#sync') { history.replaceState(null, '', location.pathname + location.search + '#today'); render(); syncCalendarLive(); } else render(); });
+  /** One tap from a link Claude sends: «#pricing=…» carries the pricing base; it is stored on this device and the link is cleared. */
+  function takePricing() {
+    if (!/^#pricing=/.test(location.hash)) return false;
+    try {
+      const b = location.hash.slice(9).replace(/-/g, '+').replace(/_/g, '/'), text = decodeURIComponent(escape(atob(b)));
+      history.replaceState(null, '', location.pathname + location.search + '#file?f=work');
+      const P = E.setPricing(S, text); save(); toast(`اتحفظت قاعدة الأسعار: ${E.ar(P.refs.length)} سعر`);
+    } catch (e) { history.replaceState(null, '', location.pathname + location.search + '#today'); toast('الرابط ده مش سليم'); }
+    render(); return true;
+  }
+  window.addEventListener('hashchange', () => { if (takeProducts() || takePricing()) return; if (location.hash === '#sync') { history.replaceState(null, '', location.pathname + location.search + '#today'); render(); syncCalendarLive(); } else render(); });
   window.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
   // ------------------------------------------------------------- shell
@@ -2968,7 +2987,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     S = E.bootstrap(await Store.load(), SNAP);
     save(); render();
     if (gBack) syncCalendarLive();
-    else if (takeProducts()) {}
+    else if (takeProducts() || takePricing()) {}
     else if (location.hash === '#sync') { history.replaceState(null, '', location.pathname + location.search + '#today'); render(); syncCalendarLive(); }
     setInterval(() => { if (!$('#modal') && route() === 'home') render(); }, 60000);
     if ((Store.mode === 'server' || location.protocol === 'https:') && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { }); // installed copy works offline
