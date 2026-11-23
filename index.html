@@ -242,6 +242,7 @@ ol.price{margin:0;padding-inline-start:20px;display:grid;gap:6px;font-size:14px}
 .wd.on{background:color-mix(in srgb,var(--sc,var(--accent)) 12%,var(--panel));border-color:var(--sc,var(--accent))} .wd.on b{color:var(--sc,var(--accent))}
 @media (max-width:760px){ .wirds{grid-template-columns:repeat(2,minmax(0,1fr))} }
 .sym{font-family:"Noto Naskh Arabic","Geeza Pro","Segoe UI",serif;font-weight:400}
+.days{display:inline-flex;gap:2px} .days label{display:inline-flex;flex-direction:column;align-items:center;font-size:10.5px;color:var(--muted)} .days input{margin:0}
 
 </style>
 </head>
@@ -264,7 +265,7 @@ ol.price{margin:0;padding-inline-start:20px;display:grid;gap:6px;font-size:14px}
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1804';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1807';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -2162,7 +2163,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
         <label class="f">الشغل يوميًا (د)<input type="number" step="30" name="wm" value="${st.work.minutesPerDay}"></label><label class="f">أقصى عدد مهام يوميًا<input type="number" name="maxDailyTasks" value="${st.maxDailyTasks}" min="1" max="10"></label>
         <button class="btn primary">حفظ الإعدادات</button></form>
         <div class="muted small" style="margin-top:6px">المواقيت بطريقة الهيئة المصرية العامة للمساحة (الفجر 19.5°، العشاء 17.5°). اليوم: ${(() => { const p = E.prayerTimes(today(), st.lat, st.lon, E.tzOffsetHours(today())); return ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].map(k => H(p[k])).join(' · '); })()}</div></div>
-      <div class="card"><h2>النسخ الاحتياطي</h2><div class="row"><button class="btn" data-a="backup">تنزيل نسخة احتياطية كاملة</button><label class="btn">استعادة نسخة<input type="file" accept=".json" data-a="restore" hidden></label><button class="btn ghost" data-a="theme">تبديل الوضع الليلي</button><button class="btn ghost danger" data-a="reset">مسح البيانات المحلية</button></div>
+      <div class="card"><h2>النسخ الاحتياطي</h2><div class="small" style="margin-bottom:6px">على درايف: ${S.sync.lastDrive ? 'آخر نسخة ' + fmtTs(S.sync.lastDrive) : 'لسه مفيش نسخة'}. بتتحفظ لوحدها كل يوم مع ↻ التقويم أو أول ما تفتح التطبيق، في فولدر «Life OS - نسخ احتياطية»، نسخة لكل يوم.</div><div class="row"><button class="btn primary" data-a="drive-backup">احفظ على درايف دلوقتي</button><button class="btn" data-a="backup">تنزيل نسخة احتياطية كاملة</button><label class="btn">استعادة نسخة<input type="file" accept=".json" data-a="restore" hidden></label><button class="btn ghost" data-a="theme">تبديل الوضع الليلي</button><button class="btn ghost danger" data-a="reset">مسح البيانات المحلية</button></div>
         <div class="muted small" style="margin-top:6px">${Store.idb ? 'التخزين: IndexedDB في هذا المتصفح' : 'التخزين: localStorage'}${Store.mode === 'server' ? ' + ملف على الخادم مع نسخ احتياطية دورية' : ''}. آخر حفظ: ${Store.lastSaved ? Store.lastSaved.toLocaleTimeString('ar-EG') : '—'}</div></div>
     </div>`;
   };
@@ -2187,6 +2188,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const items = plan.blocks.filter(b => b.type !== 'prayer' && b.type !== 'routine' && !isQ(b));
     const energy = (S.energy.filter(e => e.date === d).slice(-1)[0] || {}).level;
     return `${!SNAP && !Object.keys(S.events || {}).length ? `<div class="card" style="margin-bottom:14px;border-color:var(--accent)"><h2>أهلًا، خطوة واحدة</h2><div class="small">النسخة المنشورة لا تحمل بياناتك الشخصية. اختر ملف النسخة الاحتياطية (من فولدر Life OS في الدرايف) مرة واحدة، وبعدها كل شيء يبقى على هذا الجهاز.</div><label class="btn primary" style="margin-top:8px">استعادة نسختي<input type="file" accept=".json,application/json" data-a="restore" hidden></label></div>` : ''}
+    ${GCID() && (daysSinceDrive() == null || daysSinceDrive() >= 2) ? `<div class="card noprint" style="margin-bottom:12px;padding:10px 14px"><div class="row"><span class="small" style="flex:1">${daysSinceDrive() == null ? 'لسه مفيش نسخة من بياناتك على درايف.' : `آخر نسخة على درايف من ${E.ar(daysSinceDrive())} أيام.`}</span><button class="btn sm primary" data-a="drive-backup">احفظ على درايف</button></div></div>` : ''}
     <div class="grid g2 keep">
       <div class="card"><h2>الآن</h2>${cur ? `<div style="font-weight:600">${esc(cur.title)}</div><div class="muted small"><bdi dir="ltr">${cur.start}–${cur.end}</bdi></div>` : '<div class="muted">وقت متاح</div>'}<div class="muted small" style="margin-top:4px">غير محجوز حتى النوم: ${D(freeAfterNow(plan))}</div></div>
       <div class="card"><h2>إنجاز اليوم</h2><div class="row"><div class="ring" style="--p:${comp.pct}"><span>${E.ar(comp.pct)}٪</span></div><div class="small muted">${D(comp.done)} من ${D(comp.total)}<br>اضغط «تم» أو التقييم في الجدول، ولا شيء غيره.</div></div></div>
@@ -2215,6 +2217,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   /** Each wird has its own time, taken from today's plan (23 Nov: «الأوراد ما تبقاش مفتوحة، ليها ساعة محددة»). */
   function wirdWhen(w, plan) {
     const B = plan.blocks, pr = n => B.find(b => b.type === 'prayer' && b.title.includes(n)), r = (txt, min) => ({ txt, min: min == null ? 9999 : min });
+    if (w.time) { const m = /^\d{1,2}:\d{2}$/.test(w.time) ? E.toMin(w.time) : null; return r(w.time, m); }
     if (w.id === 'w-adhkar-am') { const l = B.find(b => b.type === 'event' && /درس التفسير اليومي/.test(b.title)), f = pr('الفجر'), m = l ? l.endMin : f ? f.endMin : 360; return r(`${l ? 'بعد درس الفجر' : 'بعد الفجر'} ${H(m)}`, m); }
     if (w.id === 'w-adhkar-pm') { const m = pr('المغرب'); return m ? r(`قبل المغرب ${H(m.startMin - 15)}`, m.startMin - 15) : r('قبل المغرب'); }
     if (w.id === 'w-qiyam') { const m = E.toMin(S.settings.sleepTime) - 15; return r(`قبل النوم ${H(m)}، ركعتين`, m); }
@@ -2316,7 +2319,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const gs = (S.bigGoals || []).filter(g => g.file === f.id);
     const goalsCard = `<div class="card"><h2>الأهداف<span class="sp"></span><a class="small" href="#goals2">تعديل</a></h2><ul class="list">${gs.map(g => `<li><span class="tag ${g.status === 'month' ? 'hard' : ''}">${E.GOAL_STATUS[g.status]}</span><span>${esc(g.title)}</span></li>`).join('') || '<li class="empty">لا أهداف بعد.</li>'}</ul></div>`;
     let extra = '';
-    if (f.id === 'worship') extra = `<div class="card"><h2>الأوراد اليومية</h2><ul class="list">${(S.awrad || []).map((w, i) => `<li><span style="flex:1"><input type="text" value="${esc(w.title)}" data-a="wird-edit" data-i="${i}" style="width:100%">${w.note ? `<div class="small muted">${esc(w.note)}</div>` : ''}</span><span class="small muted">${streak(w.id)} أيام متتالية</span><button class="btn sm ghost danger" data-a="wird-del" data-i="${i}">✕</button></li>`).join('')}</ul><form class="row" data-form="wird-add"><input type="text" name="title" placeholder="ورد جديد" required style="flex:1"><button class="btn sm">إضافة</button></form></div>` + V.quran();
+    if (f.id === 'worship') extra = `<div class="card"><h2>الأوراد والعادات</h2><div class="small muted" style="margin-bottom:6px">غيّر الاسم أو الوقت أو الأيام من هنا. الوقت ممكن يبقى ساعة (07:30) أو كلام (بعد العصر). لو سبته فاضي بيتحسب لوحده من جدولك.</div><ul class="list">${(S.awrad || []).map((w, i) => `<li style="flex-wrap:wrap;gap:6px"><input type="text" value="${esc(w.title)}" data-a="wird-edit" data-f="title" data-i="${i}" style="flex:2;min-width:140px"><input type="text" value="${esc(w.time || '')}" placeholder="${esc(wirdWhen(w, ensureTodayPlan()).txt) || 'الوقت'}" data-a="wird-edit" data-f="time" data-i="${i}" style="flex:1;min-width:110px"><span class="days">${[0, 1, 2, 3, 4, 5, 6].map(k => `<label title="${E.DAY_NAMES[k]}"><input type="checkbox" data-a="wird-day" data-i="${i}" data-k="${k}" ${!w.days || w.days.includes(k) ? 'checked' : ''}>${['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'][k]}</label>`).join('')}</span>${streak(w.id) !== '٠' ? `<span class="small muted">${streak(w.id)} يوم ورا بعض</span>` : ''}<button class="btn sm ghost danger" data-a="wird-del" data-i="${i}" aria-label="حذف">✕</button></li>`).join('')}</ul><form class="row" data-form="wird-add" style="margin-top:6px;flex-wrap:wrap"><input type="text" name="title" placeholder="ورد أو عادة جديدة" required style="flex:2"><input type="text" name="time" placeholder="الوقت (اختياري)" style="flex:1"><button class="btn sm">إضافة</button></form></div>` + V.quran();
     if (f.id === 'knowledge') extra = V.knowledge();
     if (f.id === 'projects') return `<div class="row noprint" style="margin-bottom:10px"><a class="btn" href="#files">→ كل الملفات</a></div>${projectsFile()}`;
     if (f.id === 'work') extra = workFile();
@@ -2539,7 +2542,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
   function workFile() {
     const W = S.work2;
-    return `<div class="card"><h2>العمل البحثي</h2><ul class="list">${W.research.map(r => `<li><label style="flex:1"><input type="checkbox" data-a="rs-chk" data-id="${r.id}" ${r.received ? 'checked' : ''}> ${esc(r.title)}</label><strong>${money(r.amount)}</strong><span class="small muted">${r.received ? 'وصل' : 'لسه'}</span><button class="btn sm ghost danger" data-a="rs-del" data-id="${r.id}">✕</button></li>`).join('') || '<li class="empty">لا أعمال.</li>'}</ul>
+    return `<div class="card"><h2>العمل البحثي</h2><ul class="list">${W.research.map(r => `<li><input type="checkbox" data-a="rs-chk" data-id="${r.id}" ${r.received ? 'checked' : ''} aria-label="وصل"><input type="text" value="${esc(r.title)}" data-a="rs-edit" data-f="title" data-id="${r.id}" style="flex:1;border:0;background:transparent;font:inherit;color:inherit"><input type="number" value="${r.amount || 0}" data-a="rs-edit" data-f="amount" data-id="${r.id}" style="width:90px"><span class="small muted">${r.received ? 'وصل' : 'لسه'}</span><button class="btn sm ghost danger" data-a="rs-del" data-id="${r.id}">✕</button></li>`).join('') || '<li class="empty">لا أعمال.</li>'}</ul>
         <div style="margin-top:6px"><button class="btn sm" data-a="quick" data-k="research">＋ عمل بحثي</button></div></div>
       ${pricingCard()}${salesCard()}`;
   }
@@ -2569,7 +2572,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const st = Math.random().toString(36).slice(2); lsSet('lifeos-gstate', st);
     const u = 'https://accounts.google.com/o/oauth2/v2/auth?response_type=token&include_granted_scopes=true'
       + '&client_id=' + encodeURIComponent(GCID()) + '&redirect_uri=' + encodeURIComponent(REDIRECT())
-      + '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly') + '&state=' + st + (S.sync.gAuthorized ? '' : '&prompt=consent');
+      + '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.file') + '&state=' + st + (S.sync.gAuthorized ? '' : '&prompt=consent');
     toast('بفتح جوجل…'); location.href = u;
     return new Promise(() => { }); // the page leaves; sync resumes after the redirect back
   }
@@ -2582,6 +2585,35 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     lsSet('lifeos-gtoken', { t: p.get('access_token'), exp: Date.now() + (+p.get('expires_in') || 3600) * 1000 });
     return true;
   }
+  // ------------------------------------------------------------- automatic backup to the user's own Google Drive (drive.file: only files this app made; free)
+  const tokenNow = () => { const t = lsGet('lifeos-gtoken'); return t && t.exp > Date.now() + 60000 ? t.t : null; };
+  async function driveBackup(tok, quiet) {
+    const H2 = { Authorization: 'Bearer ' + tok }, api = 'https://www.googleapis.com/drive/v3/files';
+    const q = async query => { const r = await fetch(api + '?fields=files(id,name)&q=' + encodeURIComponent(query), { headers: H2 }); if (!r.ok) throw new Error(await r.text()); return (await r.json()).files || []; };
+    try {
+      let folder = lsGet('lifeos-drive-folder');
+      if (!folder) { const f = await q("name='Life OS - نسخ احتياطية' and mimeType='application/vnd.google-apps.folder' and trashed=false"); folder = f[0] && f[0].id;
+        if (!folder) { const r = await fetch(api, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, H2), body: JSON.stringify({ name: 'Life OS - نسخ احتياطية', mimeType: 'application/vnd.google-apps.folder' }) }); if (!r.ok) throw new Error(await r.text()); folder = (await r.json()).id; }
+        lsSet('lifeos-drive-folder', folder); }
+      const name = `life-os-${today()}.json`, body = JSON.stringify(S), ex = await q(`name='${name}' and '${folder}' in parents and trashed=false`);
+      let r;
+      if (ex[0]) r = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${ex[0].id}?uploadType=media`, { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json' }, H2), body });
+      else { const b = 'lifeos' + Date.now(), meta = JSON.stringify({ name, parents: [folder], mimeType: 'application/json' });
+        r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', { method: 'POST', headers: Object.assign({ 'Content-Type': 'multipart/related; boundary=' + b }, H2), body: `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--` }); }
+      if (!r.ok) { if (r.status === 404) lsSet('lifeos-drive-folder', null); throw new Error(await r.text()); }
+      S.sync.lastDrive = nowStamp(); save(); if (!quiet) toast('اتحفظت نسخة على درايف ✓'); if (route() === 'settings' || route() === 'today') render(); return true;
+    } catch (err) {
+      const m = String(err.message || err); if (/401|invalid_token|Invalid Credentials/.test(m)) { try { localStorage.removeItem('lifeos-gtoken'); } catch (e) { } }
+      toast(/accessNotConfigured|has not been used|SERVICE_DISABLED/.test(m) ? 'محتاج تفعّل Google Drive API في مشروع جوجل مرة واحدة (الرابط في الإعدادات)' : /insufficient|scope/i.test(m) ? 'محتاج تسمح بدرايف: دوس «احفظ على درايف» ووافق' : 'النسخة على درايف ما نجحتش');
+      return false;
+    }
+  }
+  async function backupNow() {
+    if (!GCID()) { toast('محتاج مفتاح الربط من جوجل الأول (الإعدادات)'); return; }
+    const t = tokenNow(); if (t) return driveBackup(t);
+    lsSet('lifeos-after', 'backup'); getToken();
+  }
+  const daysSinceDrive = () => S.sync.lastDrive ? Math.round((E.parseDate(today()) - E.parseDate(S.sync.lastDrive.slice(0, 10))) / 86400000) : null;
   async function syncCalendarLive() {
     if (!GCID()) { toast('محتاج مفتاح الربط من جوجل الأول (الإعدادات)'); location.hash = 'settings'; return; }
     const from = E.addDays(today(), -1), to = E.addDays(today(), 60);
@@ -2596,7 +2628,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       const res = E.applyCalendar(S, E.mapGoogleEvents(items, [from, to]), 'مباشرة من الموبايل', from + 'T00:00');
       for (const d of Object.keys(S.plans)) if (d > today()) delete S.plans[d];
       S.plans[today()] && E.replanDay(S, today(), nowStamp(), 'مزامنة التقويم');
-      save(); render(); const c = res.counts || {}; toast(`اتزامن التقويم: ${E.ar(c.added || 0)} جديد، ${E.ar(c.updated || 0)} اتعدل، ${E.ar(c.removed || 0)} اتشال`);
+      save(); render(); driveBackup(tok, true); const c = res.counts || {}; toast(`اتزامن التقويم: ${E.ar(c.added || 0)} جديد، ${E.ar(c.updated || 0)} اتعدل، ${E.ar(c.removed || 0)} اتشال`);
     } catch (err) { if (/401/.test(err.message)) { try { localStorage.removeItem('lifeos-gtoken'); } catch (e) { } } toast('المزامنة ما نجحتش: ' + err.message); }
   }
   V.report = (q) => {
@@ -2711,7 +2743,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
         <div class="small muted" style="margin-top:6px">أو من زرار «المساعد»: قول «فكرة …» وهي تتحط هنا لوحدها.</div></div>
       <div class="chips" style="margin-bottom:10px"><a class="chip ${c ? '' : 'on'}" href="#ideas">الكل (${E.ar((S.ideas || []).length)})</a>${cats.map(([k, l]) => `<a class="chip ${c === k ? 'on' : ''}" href="#ideas?c=${k}">${l} (${E.ar(n(k))})</a>`).join('')}</div>
       <div class="grid g2">${cats.filter(([k]) => !c || c === k).map(([k, l]) => { const xs = L.filter(x => x.cat === k); if (c === '' && !xs.length) return '';
-        return `<div class="card"><h2>${IDEA_ICON[k]} ${l}</h2><ul class="list">${xs.map(x => `<li><span style="flex:1">${esc(x.text)}</span><select data-a="idea-cat" data-id="${x.id}" aria-label="نقل">${cats.map(([kk, ll]) => `<option value="${kk}" ${kk === x.cat ? 'selected' : ''}>${ll}</option>`).join('')}</select><span class="small muted">${x.date.slice(5)}</span><button class="btn sm ghost danger" data-a="idea-del" data-id="${x.id}" aria-label="حذف">✕</button></li>`).join('') || '<li class="empty">مفيش أفكار هنا.</li>'}</ul></div>`; }).join('') || '<div class="card"><div class="empty">لسه مفيش أفكار.</div></div>'}</div>`;
+        return `<div class="card"><h2>${IDEA_ICON[k]} ${l}</h2><ul class="list">${xs.map(x => `<li><input type="text" value="${esc(x.text)}" data-a="idea-edit" data-id="${x.id}" style="flex:1;border:0;background:transparent;font:inherit;color:inherit"><select data-a="idea-cat" data-id="${x.id}" aria-label="نقل">${cats.map(([kk, ll]) => `<option value="${kk}" ${kk === x.cat ? 'selected' : ''}>${ll}</option>`).join('')}</select><span class="small muted">${x.date.slice(5)}</span><button class="btn sm ghost danger" data-a="idea-del" data-id="${x.id}" aria-label="حذف">✕</button></li>`).join('') || '<li class="empty">مفيش أفكار هنا.</li>'}</ul></div>`; }).join('') || '<div class="card"><div class="empty">لسه مفيش أفكار.</div></div>'}</div>`;
   };
 
   /** The estimate in the agreed shape: service, amount, approved, proposed, past jobs, projects, the number. */
@@ -2859,6 +2891,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       case 'ob-done': { const o = S.outbox.find(x => x.id === t.dataset.id); o.status = 'done-manually'; save(); render(); toast('سيظهر التعديل في المزامنة القادمة'); break; }
       case 'sync-snap': showSyncResult(E.applySnapshot(S, SNAP, 'لقطة مدمجة (إعادة)')); save(); render(); break;
       case 'sync-live': syncLive(); break;
+      case 'drive-backup': backupNow(); break;
       case 'backup': download(`life-os-backup-${today()}.json`, JSON.stringify(S, null, 1), 'application/json'); break;
       case 'reset': if (confirm('سيُمسح كل ما سجلته في هذا المتصفح. هل نزّلت نسخة احتياطية؟')) { Store.flush(E.bootstrap(null, SNAP)).then(() => location.reload()); } break;
       case 'theme': { const r = document.documentElement, cur = r.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); r.dataset.theme = cur === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('lifeos-theme', r.dataset.theme); } catch (e) { } render(); break; }
@@ -2932,7 +2965,10 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     if (a === 'ev-prep') { const k = t.dataset.k; S.taskStatus[k] = Object.assign(S.taskStatus[k] || {}, { prep: t.checked }); save(); render(); return; }
     if (a === 'k-edit') { const it = S.knowledge.items.find(x => x.id === t.dataset.id); it[t.dataset.f] = t.value; save(); return; }
     if (a === 'k-step') { const it = S.knowledge.items.find(x => x.id === t.dataset.id); it.steps[+t.dataset.i].done = t.checked; save(); return; }
-    if (a === 'wird-edit') { S.awrad[+t.dataset.i].title = t.value; save(); return; }
+    if (a === 'wird-edit') { const w = S.awrad[+t.dataset.i], f = t.dataset.f || 'title'; if (f === 'time' && !t.value.trim()) delete w.time; else w[f] = t.value.trim(); save(); return; }
+    if (a === 'wird-day') { const w = S.awrad[+t.dataset.i], k = +t.dataset.k, cur = w.days || [0, 1, 2, 3, 4, 5, 6]; const nd = t.checked ? [...new Set([...cur, k])].sort() : cur.filter(x => x !== k); w.days = nd.length === 7 ? undefined : nd; if (!w.days) delete w.days; if (w.id === 'w-sport') { const g = (S.bigGoals || []).find(x => x.id === 'g-sport'); if (g) { g.days = nd; E.syncGoalTasks(S); } } save(); return; }
+    if (a === 'idea-edit') { const x = (S.ideas || []).find(y => y.id === t.dataset.id); if (x) { x.text = t.value.trim(); save(); } return; }
+    if (a === 'rs-edit') { const x = S.work2.research.find(y => y.id === t.dataset.id); if (x) { x[t.dataset.f] = t.dataset.f === 'amount' ? +t.value || 0 : t.value.trim(); save(); } return; }
     if (a === 'pick-day') location.hash = 'day?d=' + t.value;
     else if (a === 'rep-date') location.hash = `reports?k=${t.dataset.k}&d=${t.value}`;
     else if (a === 'goal') { const g = S.goals[+t.dataset.i]; g[t.dataset.f] = t.type === 'checkbox' ? t.checked : t.type === 'number' ? +t.value : t.value; save(); }
@@ -2956,7 +2992,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const f = e.target, v = Object.fromEntries(new FormData(f));
     if (f.dataset.form) { e.preventDefault();
       if (f.dataset.form === 'g-add') { S.bigGoals.push({ id: E.uid('g'), file: f.dataset.file, title: v.title, status: 'archive', perWeek: 1, minutes: 60, days: null, energy: 'med', priority: 2, note: '' }); }
-      if (f.dataset.form === 'wird-add') S.awrad.push({ id: E.uid('w'), title: v.title });
+      if (f.dataset.form === 'wird-add') { const w = { id: E.uid('w'), title: v.title.trim() }; if ((v.time || '').trim()) w.time = v.time.trim(); S.awrad.push(w); }
       if (f.dataset.form === 'case-add') S.charity.cases.push({ name: v.name, need: v.need, date: today() });
       if (f.dataset.form === 'k-add') S.knowledge.items.push({ id: E.uid('k'), track: f.dataset.track, title: v.title, status: 'todo', when: '', prep: '', steps: [], note: '' });
       if (f.dataset.form === 'k-step-add') S.knowledge.items.find(x => x.id === f.dataset.id).steps.push({ t: v.t, done: false });
@@ -3053,7 +3089,9 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const gBack = takeGoogleReturn();
     S = E.bootstrap(await Store.load(), SNAP);
     save(); render();
-    if (gBack) syncCalendarLive();
+    if (gBack && lsGet('lifeos-after') === 'backup') { lsSet('lifeos-after', null); driveBackup(tokenNow()); }
+    else if (gBack) syncCalendarLive();
+    else if (tokenNow() && (!S.sync.lastDrive || S.sync.lastDrive.slice(0, 10) !== today())) driveBackup(tokenNow(), true);
     else if (takeProducts() || takePricing()) {}
     else if (location.hash === '#sync') { history.replaceState(null, '', location.pathname + location.search + '#today'); render(); syncCalendarLive(); }
     setInterval(() => { if (!$('#modal') && route() === 'home') render(); }, 60000);
