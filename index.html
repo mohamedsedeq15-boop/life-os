@@ -235,7 +235,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1441';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1450';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1629,11 +1629,20 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   const dayName = d => E.DAY_NAMES[E.weekday(d)];
   const fmtDate = d => { const p = E.parseDate(d); return `${dayName(d)} ${p.getDate()}/${p.getMonth() + 1}`; };
   function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3200); }
+  /** Show every HH:MM on screen as a 12-hour time (user, 23 Nov): 16:30 → 4:30 م. Data and time inputs stay 24-hour. */
+  function to12(root) {
+    const re = /(?<![\d:])([01]?\d|2[0-3]):([0-5]\d)(?:\s*([–-]|→|←)\s*([01]?\d|2[0-3]):([0-5]\d))?(?![\d:])/g; // one pass: a single time or a range
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => /SCRIPT|STYLE|TEXTAREA|OPTION/.test(n.parentNode.nodeName) || !/\d:\d\d/.test(n.nodeValue) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+    const L = []; while (w.nextNode()) L.push(w.currentNode);
+    const t = (h, mm) => `${+h % 12 || 12}:${mm}`, ap = h => +h < 12 ? 'ص' : 'م';
+    for (const n of L) n.nodeValue = n.nodeValue.replace(re, (m, h1, m1, sep, h2, m2) => !sep ? `${t(h1, m1)} ${ap(h1)}`
+      : ap(h1) === ap(h2) ? `${t(h1, m1)}${sep}${t(h2, m2)} ${ap(h2)}` : `${t(h1, m1)} ${ap(h1)}${sep}${t(h2, m2)} ${ap(h2)}`);
+  }
   function modal(html, onMount) {
     closeModal(); const m = document.createElement('div'); m.className = 'modal'; m.id = 'modal';
     m.innerHTML = `<div class="card" role="dialog" aria-modal="true">${html}</div>`;
     m.addEventListener('click', e => { if (e.target === m) closeModal(); });
-    document.body.appendChild(m); if (onMount) onMount(m);
+    document.body.appendChild(m); to12(m); if (onMount) onMount(m);
     const f = m.querySelector('input,select,textarea,button'); if (f) f.focus();
   }
   function closeModal() { const m = $('#modal'); if (m) m.remove(); }
@@ -2745,7 +2754,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     $('#title').textContent = sec[0] === 'file' ? ((E.FILES.find(f => f.id === q.get('f')) || {}).name || 'الملف') : sec[1];
     $('#today').textContent = `${fmtDate(today())} · ${nowStamp().slice(11, 16)}`;
     let html; try { html = V[sec[0]](q); } catch (err) { console.error(err); html = `<div class="card"><h2>تعذر عرض القسم</h2><pre class="small">${esc(err.stack || err)}</pre></div>`; }
-    $('#view').innerHTML = html;
+    $('#view').innerHTML = html; to12($('#view')); to12($('.top'));
     $('#view').dataset.s = sec[0] === 'file' ? ((E.FILES.find(f => f.id === q.get('f')) || E.FILES[0]).id) : '';
     $('.top').dataset.s = $('#view').dataset.s;
     $('.side').classList.remove('open');
