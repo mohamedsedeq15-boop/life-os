@@ -1826,15 +1826,27 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
 
   // ------------------------------------------------------------- live Google Calendar read (browser-only OAuth, read-only scope; no secrets in code)
   const GCID = () => (S.settings.googleClientId || window.LIFEOS_GCID || '').trim();
-  function loadGis() { return window.google && google.accounts ? Promise.resolve() : new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.onload = res; sc.onerror = () => rej(new Error('تعذر تحميل تسجيل دخول جوجل (محتاج نت)')); document.head.appendChild(sc); }); }
-  let gToken = null;
+  // Redirect (implicit) flow: works inside an installed home-screen app where popups are blocked.
+  const REDIRECT = () => location.origin + location.pathname;
+  function lsGet(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
   function getToken() {
-    if (gToken && gToken.exp > Date.now() + 60000) return Promise.resolve(gToken.t);
-    return loadGis().then(() => new Promise((res, rej) => {
-      const c = google.accounts.oauth2.initTokenClient({ client_id: GCID(), scope: 'https://www.googleapis.com/auth/calendar.readonly',
-        callback: r => r.error ? rej(new Error(r.error)) : (gToken = { t: r.access_token, exp: Date.now() + (r.expires_in || 3600) * 1000 }, res(r.access_token)), error_callback: e => rej(new Error(e.type || 'تم الإلغاء')) });
-      c.requestAccessToken({ prompt: S.sync.gAuthorized ? '' : 'consent' });
-    }));
+    const t = lsGet('lifeos-gtoken'); if (t && t.exp > Date.now() + 60000) return Promise.resolve(t.t);
+    const st = Math.random().toString(36).slice(2); lsSet('lifeos-gstate', st);
+    const u = 'https://accounts.google.com/o/oauth2/v2/auth?response_type=token&include_granted_scopes=true'
+      + '&client_id=' + encodeURIComponent(GCID()) + '&redirect_uri=' + encodeURIComponent(REDIRECT())
+      + '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly') + '&state=' + st + (S.sync.gAuthorized ? '' : '&prompt=consent');
+    toast('بفتح جوجل…'); location.href = u;
+    return new Promise(() => { }); // the page leaves; sync resumes after the redirect back
+  }
+  /** Called at start: if Google just sent us back with a token, keep it and sync. */
+  function takeGoogleReturn() {
+    const h = location.hash.slice(1); if (!/(^|&)(access_token|error)=/.test(h)) return false;
+    const p = new URLSearchParams(h); history.replaceState(null, '', REDIRECT() + '#today');
+    if (p.get('error')) { setTimeout(() => toast('جوجل رفض: ' + p.get('error')), 300); return false; }
+    if (p.get('state') !== lsGet('lifeos-gstate')) { setTimeout(() => toast('رجوع غير متوقع من جوجل، جرّب تاني'), 300); return false; }
+    lsSet('lifeos-gtoken', { t: p.get('access_token'), exp: Date.now() + (+p.get('expires_in') || 3600) * 1000 });
+    return true;
   }
   async function syncCalendarLive() {
     if (!GCID()) { toast('محتاج مفتاح الربط من جوجل الأول (الإعدادات)'); location.hash = 'settings'; return; }
@@ -1849,9 +1861,9 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       } while (page);
       const res = E.applyCalendar(S, E.mapGoogleEvents(items, [from, to]), 'مباشرة من الموبايل', from + 'T00:00');
       for (const d of Object.keys(S.plans)) if (d > today()) delete S.plans[d];
-      S.plans[today()] && E.replanDay(S, today(), nowMin(), 'مزامنة التقويم');
+      S.plans[today()] && E.replanDay(S, today(), nowStamp(), 'مزامنة التقويم');
       save(); render(); const c = res.counts || {}; toast(`اتزامن التقويم: ${E.ar(c.added || 0)} جديد، ${E.ar(c.updated || 0)} اتعدل، ${E.ar(c.removed || 0)} اتشال`);
-    } catch (err) { toast('المزامنة ما نجحتش: ' + err.message); }
+    } catch (err) { if (/401/.test(err.message)) { try { localStorage.removeItem('lifeos-gtoken'); } catch (e) { } } toast('المزامنة ما نجحتش: ' + err.message); }
   }
   V.report = (q) => {
     const [ws, we] = E.periodRange('week', q.get('d') || today());
@@ -2149,8 +2161,10 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       <main class="main"><div class="top"><button class="btn menu-btn" data-a="menu" aria-label="القائمة">☰</button><h1 id="title"></h1><span class="pill" id="today"></span><span class="pill" id="savebadge">…</span></div><div id="view"></div></main></div>
       <button class="btn primary fab" data-a="assistant">المساعد</button>`;
     await Store.open();
+    const gBack = takeGoogleReturn();
     S = E.bootstrap(await Store.load(), SNAP);
     save(); render();
+    if (gBack) syncCalendarLive();
     setInterval(() => { if (!$('#modal') && route() === 'home') render(); }, 60000);
     if ((Store.mode === 'server' || location.protocol === 'https:') && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { }); // installed copy works offline
     window.addEventListener('pagehide', () => { try { S.savedAt = new Date().toISOString(); localStorage.setItem('lifeos-state', JSON.stringify(S)); } catch (e) { } });
