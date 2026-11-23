@@ -213,6 +213,28 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 .smap .casc{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px} .smap .casc i{font-style:normal;padding:3px 10px;border-radius:8px;background:var(--panel2);border:1px solid var(--line)} .smap .casc em{font-style:normal;color:var(--muted)}
 .smap ol{list-style:arabic-indic;margin:0;padding-inline-start:18px;font-size:13px;display:grid;gap:3px}
 @media (max-width:560px){ .smap .row3{grid-template-columns:1fr} }
+/* v6: ideas, calendar, command box, prices */
+.chip{display:inline-flex;align-items:center;gap:4px;cursor:pointer;border:1px solid var(--line2);background:var(--panel);border-radius:99px;padding:4px 12px;font-size:13px;font-weight:500;color:inherit;text-decoration:none}
+.chip.on{background:var(--sc,var(--accent));color:#fff;border-color:transparent} .chip input{margin:0}
+.cmdp{border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--bg)}
+
+.btn.mic{font-size:18px;padding:4px 10px} .btn.mic.on{background:var(--bad);color:#fff;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.6}}
+ol.price{margin:0;padding-inline-start:20px;display:grid;gap:6px;font-size:14px} ol.price .list{margin-top:4px}
+.calw{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.calw .cd{border:1px solid var(--line);border-radius:10px;padding:6px;min-height:120px;display:flex;flex-direction:column;gap:4px}
+.calw .cd.now,.calm .cm.now{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.calw .ch{font-weight:600;font-size:13px;color:var(--muted)}
+.cev{font-size:12.5px;padding:4px 6px;border-radius:7px;background:var(--bg);border-inline-start:3px solid var(--sc,var(--info));line-height:1.35}
+.cev .tm{color:var(--muted);font-size:11.5px}
+.calm{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.calm .cwh{font-size:12px;color:var(--muted);text-align:center}
+.calm .cm{border:1px solid var(--line);border-radius:8px;padding:4px;min-height:74px;display:flex;flex-direction:column;gap:2px;color:inherit;text-decoration:none;overflow:hidden}
+.calm .cm.out{opacity:.45} .calm .cm b{font-size:12.5px}
+.calm .cm i{font-style:normal;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--bg);border-radius:4px;padding:0 3px}
+@media (max-width:760px){ .nav{grid-template-columns:repeat(6,1fr)!important} .nav a{font-size:10.5px}
+  .calw{grid-template-columns:1fr} .calw .cd{min-height:0} .calm .cm{min-height:54px} .calm .cm i{display:none} }
+.calm .cnt{display:none} @media (max-width:760px){ .calm .cnt{display:inline-block;align-self:flex-start;font-size:10.5px;background:var(--accent);color:#fff;border-radius:99px;padding:0 6px} }
 
 </style>
 </head>
@@ -235,7 +257,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1441';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1517';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1183,6 +1205,81 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const q = state.qplan, due = ismailDue(state); if (!due.length) return null;
     q.ismail.push({ date: day, quarters: due, rating: null }); q.ismailQ = due[due.length - 1]; return due;
   }
+  // ---------------------------------------------------------------- v6 (23 Nov, 5 PM): ideas, a spoken/typed command line, research pricing (all offline, no paid service)
+  const IDEA_CATS = { worship: 'عبادة', life: 'حياة', work: 'عمل', knowledge: 'علم' };
+  function addIdea(state, text, cat, day) {
+    const x = { id: uid('id'), text: text.trim(), cat: IDEA_CATS[cat] ? cat : 'life', date: day };
+    (state.ideas = state.ideas || []).unshift(x); return x;
+  }
+  /** Arabic text normalised for matching: no diacritics/tatweel, one form of alef/ya/ta marbuta, no «ال». */
+  const norm = t => String(t || '').replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
+    .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).toLowerCase();
+  const words = t => norm(t).split(/[^ء-يa-z0-9]+/).filter(w => w.length > 1).map(w => w.replace(/^(وال|بال|لل|فال|كال|ال)/, '').replace(/(ات|ين|ون|ه)$/, '')).filter(w => w.length > 1 && !STOP.has(w));
+  const STOP = new Set(['علمي', 'عمل', 'في', 'من', 'مع', 'او', 'نحو', 'علي', 'الي', 'عن', 'كل', 'صفح', 'صفحه', 'حدود', 'بحسب', 'ريال', 'لكتاب', 'كتاب', 'تقريبا']);
+  const ARNUM = { 'واحد': 1, 'اتنين': 2, 'اثنين': 2, 'تلات': 3, 'ثلاث': 3, 'اربع': 4, 'خمس': 5, 'ست': 6, 'سبع': 7, 'تمن': 8, 'ثمان': 8, 'تسع': 9, 'عشر': 10, 'عشرين': 20, 'تلاتين': 30, 'ثلاثين': 30, 'خمسين': 50, 'مية': 100, 'مائه': 100, 'ميه': 100 };
+  /** Minutes in phrases like «ساعة»، «ساعتين»، «نص ساعة»، «٤٥ دقيقة»، «ساعة ونص». */
+  function spokenMinutes(t) {
+    const n = norm(t); let m = 0;
+    const h = n.match(/(\d+(?:\.\d+)?)\s*(?:ساعه|ساعات)/); if (h) m += +h[1] * 60;
+    else if (/ساعتين/.test(n)) m += 120; else if (/(^|\s)ساعه/.test(n) && !/نص ساعه|ربع ساعه/.test(n)) m += 60;
+    if (/ونص/.test(n)) m += 30; if (/(^|\s)نص ساعه/.test(n)) m += 30; if (/ربع ساعه/.test(n)) m += 15;
+    const d = n.match(/(\d+)\s*(?:دقيقه|دقايق|دقائق|د\b)/); if (d) m += +d[1];
+    return m || null;
+  }
+  /** Pricing reference pasted by the user (kept in the state only, never in the code). Tables are «service | price | unit» lines. */
+  function parsePricing(text) {
+    const refs = [], notes = []; let status = 'approved', block = null;
+    const nums = s => (norm(s).match(/\d+(?:\.\d+)?/g) || []).map(Number);
+    for (const raw of String(text).split('\n')) {
+      const line = raw.trim(); if (!line) continue;
+      if (/^(اولا|ثانيا|ثالثا|رابعا|خامسا|سادسا|قاعده اخيره)/.test(norm(line).replace(/[:：]/, ''))) {
+        const n = norm(line); status = /لم تعتمد|مقترح/.test(n) ? 'proposed' : 'approved';
+        block = { title: line.replace(/[:：]\s*$/, ''), lines: [] }; notes.push(block); continue;
+      }
+      if (line.includes('|')) {
+        const [svc, price, unit] = line.split('|').map(x => x.trim());
+        if (!svc || /^الخدمه$/.test(norm(svc))) continue;
+        const ns = nums(price); if (!ns.length) { if (block) block.lines.push(line); continue; }
+        const qty = nums(svc)[0];
+        refs.push({ id: uid('pr'), service: svc, min: Math.min(...ns.filter(x => x >= 10 || ns.length === 1)), max: Math.max(...ns), unit: unit || (/للصفحه|الصفحه/.test(norm(price)) ? 'الصفحة' : 'العمل'), status, note: price, qty: qty || null });
+      } else if (block) block.lines.push(line);
+      else notes.push({ title: '', lines: [line] });
+    }
+    return { refs, notes };
+  }
+  function setPricing(state, text) {
+    const P = parsePricing(text), W = state.work2 = state.work2 || {};
+    W.pricing = { text, refs: P.refs, notes: P.notes, at: localStamp(new Date()) }; return W.pricing;
+  }
+  const UNIT_WORDS = [['صفح', 'الصفحة'], ['مسال', 'المسألة'], ['مجلد', 'المجلد'], ['نموذج', 'النموذج'], ['نماذج', 'النموذج'], ['موضع', 'الموضع'], ['مواضع', 'الموضع'], ['احال', 'الإحالة'], ['قول', 'القول'], ['اقوال', 'القول']];
+  /** Offline estimate: closest references by shared words, the quantity read from the text, approved and proposed kept apart, plus own past jobs. */
+  function estimatePrice(state, text) {
+    const W = state.work2 || {}, P = W.pricing; const n = norm(text), ws = new Set(words(text));
+    const qm = n.match(/(\d+)\s*([^\s\d]+)/g) || []; let qty = null, unit = null;
+    for (const q of qm) { const [, num, w] = q.match(/(\d+)\s*([^\s\d]+)/); const u = UNIT_WORDS.find(([k]) => w.startsWith(k) || w.includes(k)); if (u) { qty = +num; unit = u[1]; break; } }
+    const score = t => { const tw = words(t), hit = tw.filter(w => ws.has(w)).length; return hit ? hit + hit / Math.max(1, tw.length) : 0; };
+    const refs = ((P && P.refs) || []).map(r => ({ r, sc: score(r.service) })).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc || (a.r.status === 'approved' ? -1 : 1)).slice(0, 4);
+    const stem = u => norm(u).replace(/^ال/, '').slice(0, 3);
+    const perUnit = r => unit && norm(r.unit).includes(stem(unit)) && !/اجمالي|مشروع|الجلسه/.test(norm(r.unit));
+    const lines = refs.map(({ r, sc }) => { const scale = perUnit(r) && qty ? qty : 1;
+      return { service: r.service, status: r.status, unit: r.unit, min: r.min * scale, max: r.max * scale, mid: Math.round((r.min + r.max) / 2 * scale), per: perUnit(r) && qty ? `${r.min === r.max ? r.min : r.min + '–' + r.max} × ${qty}` : r.note, score: sc }; });
+    const jobs = (W.research || []).filter(j => j.amount && (j.service || j.title)).map(j => ({ j, sc: score((j.service || '') + ' ' + j.title) })).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, 3).map(x => x.j);
+    const best = lines.find(l => l.status === 'approved') || lines[0] || null;
+    const projects = ((P && P.notes) || []).flatMap(b => b.lines).map(l => ({ l, sc: score(l) })).filter(x => x.sc >= 1).sort((a, b) => b.sc - a.sc).slice(0, 2).map(x => x.l.length > 140 ? x.l.slice(0, 140) + '…' : x.l);
+    return { qty, unit, lines, best, jobs, projects, hasData: !!(P && P.refs.length), suggest: best ? best.mid : null, floor: best ? best.min : null };
+  }
+  /** A spoken or typed line, read by its first word: فكرة / مهمة / ضيعت|عملت / سعر / عمل بحثي. */
+  function parseCommand(text) {
+    const t = String(text || '').trim(), n = norm(t), rest = t.replace(/^\S+\s*/, '').trim();
+    const first = n.split(/\s+/)[0] || '';
+    if (/^فكر/.test(first)) { const c = Object.entries({ worship: /عباد|صلا|قران|ذكر|صيام/, work: /شغل|عمل|عميل|بيع|تسويق/, knowledge: /علم|درس|كتاب|بحث|متن|مذاكر/ }).find(([, re]) => re.test(n)); return { kind: 'idea', text: rest || t, cat: c ? c[0] : 'life' }; }
+    if (/^مهم/.test(first)) return { kind: 'task', text: rest || t, minutes: spokenMinutes(t) || 30 };
+    if (/^(ضيعت|ضاع|ضيع)/.test(first)) return { kind: 'log', text: rest || t, minutes: spokenMinutes(t) || 30, category: 'unplanned' };
+    if (/^(عملت|خلصت|اشتغلت|ذاكرت|قريت)/.test(first)) return { kind: 'log', text: t, minutes: spokenMinutes(t) || 30, category: 'achievement' };
+    if (/^(سعر|تسعير|سعرلي|قدر|كام)/.test(first)) return { kind: 'price', text: rest || t };
+    if (/^عمل بحثي/.test(n)) { const a = (n.match(/(\d+)/) || [])[1]; return { kind: 'research', text: t.replace(/^عمل بحثي\s*/, '').replace(/\s*(ب|بـ)?\s*[\d٠-٩]+\s*(ريال|جنيه|ج)?\s*$/, '').trim(), amount: a ? +a : 0 }; }
+    return { kind: 'unknown', text: t };
+  }
   /** 23 Nov: the worship file as the user described it — Quran review lives inside the prayers, plus sport as thanks for the body. */
   function seedWorship(state) { return false; }
   /** 23 Nov: the knowledge file, taken over from the Notion science archive so Notion can be retired. Everything here is editable in the app. */
@@ -1492,6 +1589,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     seedLessons(state);
     seedWorship(state);
     seedKnowledge(state);
+    for (const i of state.ideas || []) { if (!i.cat) i.cat = "life"; if (!i.text) i.text = i.title || ""; if (!i.date) i.date = (i.createdAt || "").slice(0, 10) || "2026-11-23"; }
     retireNotion(state);
     seedSleep(state);
     seedPrivate(state);
@@ -1506,7 +1604,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
 
   const API = { AREAS, CATS, AREA_TO_CAT, DAY_NAMES, SLOT, hm, toMin, dateStr, parseDate, addDays, weekday, localStamp, relMin, daysBetween, weekStart, range, uid, clone, ar, fmtDur, hash,
-    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
+    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
     eventsOn, eventView, planDay, savePlan, currentPlan, replanDay, diffPlans, capacity, taskInstances, logActivity, addIncident, addEnergy, instanceDone,
     periodRange, analyze, reportText, assistant, assistantContext, pearson };
   g.LifeOS = API;
@@ -1576,13 +1674,13 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   const save = () => { Store.save(S); };
 
   // ------------------------------------------------------------- sections
-  const MAIN = [['today', 'اليوم'], ['week2', 'الأسبوع'], ['month', 'الشهر'], ['files', 'الملفات'], ['settings', 'الإعدادات']];
+  const MAIN = [['today', 'اليوم'], ['week2', 'الأسبوع'], ['month', 'الشهر'], ['cal', 'التقويم'], ['files', 'الملفات'], ['settings', 'الإعدادات']];
   const SECTIONS = [
     ['today', 'اليوم'], ['week2', 'الأسبوع'], ['month', 'الشهر'], ['goals2', 'الأهداف: الأرشيف والشهر'], ['files', 'الملفات'], ['file', 'الملف'], ['appts', 'المواعيد الثابتة'], ['report', 'التقرير'],
     ['home', 'لوحة التحكم'], ['day', 'التخطيط اليومي'], ['week', 'التخطيط الأسبوعي'], ['goals', 'الأهداف طويلة المدى'],
     ['projects', 'المشروعات'], ['phd', 'المشروع العلمي والبحث العلمي'], ['quran', 'حفظ القرآن ومراجعته'], ['books', 'الكتب والمتون والدروس'],
     ['work', 'العمل والعملاء والدخل'], ['family', 'الأسرة والحياة الشخصية'], ['health', 'الصحة والنوم والطاقة'], ['time', 'إدارة الوقت وتحليله'],
-    ['reports', 'التقارير'], ['settings', 'الإعدادات والتكاملات'],
+    ['reports', 'التقارير'], ['settings', 'الإعدادات والتكاملات'], ['ideas', 'الأفكار'], ['cal', 'التقويم'],
   ];
   const route = () => (location.hash.slice(1).split('?')[0] || 'today');
   const charts = [];
@@ -1629,11 +1727,20 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   const dayName = d => E.DAY_NAMES[E.weekday(d)];
   const fmtDate = d => { const p = E.parseDate(d); return `${dayName(d)} ${p.getDate()}/${p.getMonth() + 1}`; };
   function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3200); }
+  /** Show every HH:MM on screen as a 12-hour time (user, 23 Nov): 16:30 → 4:30 م. Data and time inputs stay 24-hour. */
+  function to12(root) {
+    const re = /(?<![\d:])([01]?\d|2[0-3]):([0-5]\d)(?:\s*([–-]|→|←)\s*([01]?\d|2[0-3]):([0-5]\d))?(?![\d:])/g; // one pass: a single time or a range
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => /SCRIPT|STYLE|TEXTAREA|OPTION/.test(n.parentNode.nodeName) || !/\d:\d\d/.test(n.nodeValue) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+    const L = []; while (w.nextNode()) L.push(w.currentNode);
+    const t = (h, mm) => `${+h % 12 || 12}:${mm}`, ap = h => +h < 12 ? 'ص' : 'م';
+    for (const n of L) n.nodeValue = n.nodeValue.replace(re, (m, h1, m1, sep, h2, m2) => !sep ? `${t(h1, m1)} ${ap(h1)}`
+      : ap(h1) === ap(h2) ? `${t(h1, m1)}${sep}${t(h2, m2)} ${ap(h2)}` : `${t(h1, m1)} ${ap(h1)}${sep}${t(h2, m2)} ${ap(h2)}`);
+  }
   function modal(html, onMount) {
     closeModal(); const m = document.createElement('div'); m.className = 'modal'; m.id = 'modal';
     m.innerHTML = `<div class="card" role="dialog" aria-modal="true">${html}</div>`;
     m.addEventListener('click', e => { if (e.target === m) closeModal(); });
-    document.body.appendChild(m); if (onMount) onMount(m);
+    document.body.appendChild(m); to12(m); if (onMount) onMount(m);
     const f = m.querySelector('input,select,textarea,button'); if (f) f.focus();
   }
   function closeModal() { const m = $('#modal'); if (m) m.remove(); }
@@ -1966,6 +2073,14 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       <div class="tier"><div class="lbl">٤ · الحفظ</div><div class="row2">
         <div class="nd"><b>الموبايل</b><span>الأساس، وبيشتغل من غير نت</span></div>
         <div class="nd" style="--c:var(--info)"><b>نسخة احتياطية</b><span>ملف على درايف، والكود العام من غير بياناتك</span></div></div></div>
+      <div class="tier"><div class="lbl">٥ · زرار «المساعد» (اتكلم أو اكتب، وأول كلمة بتحدد المكان)</div><div class="row3">
+        <div class="nd" style="--c:var(--c-knowledge)"><b>فكرة …</b><span>أرشيف الأفكار: عبادة، حياة، عمل، علم (بيخمّن القسم وتقدر تغيّره)</span></div>
+        <div class="nd"><b>مهمة …</b><span>مهمة النهارده، و«ساعة» أو «نص ساعة» بتبقى مدتها</span></div>
+        <div class="nd" style="--c:var(--bad)"><b>ضيّعت …</b><span>وقت ضايع بيتسجل لحد دلوقتي</span></div>
+        <div class="nd" style="--c:var(--ok)"><b>عملت / خلصت / ذاكرت …</b><span>إنجاز بيتسجل لحد دلوقتي</span></div>
+        <div class="nd" style="--c:var(--c-work)"><b>سعّر …</b><span>تقدير من قاعدة أسعارك وأعمالك السابقة، من غير نت ولا اشتراك</span></div>
+        <div class="nd" style="--c:var(--c-work)"><b>عمل بحثي …</b><span>بيتضاف لقائمة الشغل، والرقم لو قلته بيبقى المبلغ</span></div></div>
+        <div class="small muted">أي كلام تاني بيتعامل كسؤال. قبل الحفظ بيوريك هيروح فين، وتقدر تغيّر.</div></div>
       <div class="tier" style="margin-top:4px"><div class="lbl">يومك في سطور</div><ol>
         <li>الصبح: سطر النوم، و↻ التقويم لو فيه جديد.</li><li>القرآن: قيّم القسمين، وربع في كل صلاة.</li>
         <li>المواعيد: علّم تم أو ما تمّش، و«حضّرت» للدرس.</li><li>أي رسالة من الجروب: الصقها. أي فلوس: زرار واحد.</li>
@@ -2012,7 +2127,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   };
 
   // ============================================================= v2 (simple) views
-  const NAV_ICON = { today: '◉', week2: '▦', month: '◫', goals2: '◎', files: '▤', report: '▥', settings: '⚙' };
+  const NAV_ICON = { today: '◉', week2: '▦', month: '◫', cal: '▣', goals2: '◎', files: '▤', report: '▥', settings: '⚙' };
   const fileColor = id => (E.FILES.find(f => f.id === id) || {}).color || '#999';
   const fileOfBlock = b => E.fileOfArea(b.area);
   function monthGoals() { return (S.bigGoals || []).filter(g => g.status === 'month'); }
@@ -2118,6 +2233,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     return `<div class="card" style="margin-bottom:10px"><div class="small">الملفات أرشيف للرجوع. التسجيل والتعليم كله من صفحة <a href="#today">اليوم</a>.</div></div><div class="row noprint" style="margin-bottom:10px"><a class="btn" href="#goals2">أرشيف الأهداف</a><a class="btn" href="#report">تقرير الأسبوع</a></div><div class="grid g3">${E.FILES.map(f => { const gs = (S.bigGoals || []).filter(g => g.file === f.id), m = gs.filter(g => g.status === 'month').length;
       const [ws, we] = E.periodRange('week', today()); const mins = S.logs.filter(l => f.areas.includes(l.area) && l.date >= ws && l.date <= we).reduce((a, l) => a + l.minutes, 0);
       return `<a class="card" data-s="${f.id}" href="#file?f=${f.id}" style="text-decoration:none;color:inherit"><h2>${f.name}</h2><div class="small muted">${gs.length} أهداف، منها ${m} هذا الشهر</div><div class="small">وقت هذا الأسبوع: ${D(mins)}</div></a>`; }).join('')}
+      <a class="card" href="#ideas" style="text-decoration:none;color:inherit;border-top:4px solid var(--c-knowledge)"><h2>الأفكار</h2><div class="small muted">${E.ar((S.ideas || []).length)} فكرة: عبادة، حياة، عمل، علم.</div></a>
       <a class="card" href="#appts" style="text-decoration:none;color:inherit;border-top:4px solid var(--info)"><h2>المواعيد الثابتة</h2><div class="small muted">من Google Calendar، مقسّمة: دروس، تسميع، أسرة، التزامات.</div></a></div>`;
   };
   V.appts = (q) => {
@@ -2269,7 +2385,8 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     if (k === 'ctodo') return `<h2>هدف خيري</h2><form class="form" data-form="q-ctodo"><label class="f">الهدف<input type="text" name="title" required></label><button class="btn primary">أضف</button></form>`;
     if (k === 'device') { const W = S.work2; return `<h2>جهاز للبحيري (لسه مخلصش)</h2><form class="form" data-form="q-device"><label class="f">الجهاز<input type="text" name="device" list="dev-types" required></label><datalist id="dev-types">${W.deviceTypes.map(x => `<option value="${esc(x)}">`).join('')}</datalist>
       <label class="f">العميل<input type="text" name="client" required></label><label class="f">الربح<input type="number" name="profit" min="0" inputmode="numeric"></label><button class="btn primary">سجّل</button></form>`; }
-    if (k === 'research') return `<h2>عمل بحثي</h2><form class="form" data-form="q-research"><label class="f">اسم العمل<input type="text" name="title" required></label>${amt}<button class="btn primary">سجّل</button></form>`;
+    if (k === 'research') { const sv = (((S.work2 || {}).pricing || {}).refs || []).map(r => r.service);
+      return `<h2>عمل بحثي</h2><form class="form" data-form="q-research"><label class="f">اسم العمل<input type="text" name="title" required></label><div class="row"><label class="f" style="flex:2">نوع الخدمة<input type="text" name="service" list="svc-l" placeholder="مثلاً: المراجعة العلمية"><datalist id="svc-l">${sv.map(x => `<option value="${esc(x)}">`).join('')}</datalist></label><label class="f" style="flex:1">الكمية<input type="text" name="qty" placeholder="٢٤٠ صفحة"></label></div>${amt}<div class="small muted">كل عمل بيتسجل هنا بيبقى مرجع للتسعير بعد كده.</div><button class="btn primary">سجّل</button></form>`; }
     return '';
   }
   function hubCard(d) {
@@ -2361,7 +2478,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const W = S.work2;
     return `<div class="card"><h2>العمل البحثي</h2><ul class="list">${W.research.map(r => `<li><label style="flex:1"><input type="checkbox" data-a="rs-chk" data-id="${r.id}" ${r.received ? 'checked' : ''}> ${esc(r.title)}</label><strong>${money(r.amount)}</strong><span class="small muted">${r.received ? 'وصل' : 'لسه'}</span><button class="btn sm ghost danger" data-a="rs-del" data-id="${r.id}">✕</button></li>`).join('') || '<li class="empty">لا أعمال.</li>'}</ul>
         <div style="margin-top:6px"><button class="btn sm" data-a="quick" data-k="research">＋ عمل بحثي</button></div></div>
-      ${salesCard()}`;
+      ${pricingCard()}${salesCard()}`;
   }
   function salesCard() {
     const L = (S.work2.sales || []).filter(x => x.date.slice(0, 7) === today().slice(0, 7)).slice().reverse(), sum = k => L.reduce((a, x) => a + x[k], 0);
@@ -2521,24 +2638,108 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       });
     });
   }
+  // ------------------------------------------------------------- v6: ideas, prices, calendar, command box
+  const IDEA_ICON = { worship: '◈', life: '◇', work: '◆', knowledge: '◉' };
+  V.ideas = (q) => {
+    const c = q.get('c') || '', L = (S.ideas || []).filter(x => !c || x.cat === c);
+    const cats = Object.entries(E.IDEA_CATS), n = k => (S.ideas || []).filter(x => x.cat === k).length;
+    return `<div class="card" style="margin-bottom:12px"><h2>فكرة جديدة</h2><form data-form="idea-add" style="display:grid;gap:8px"><textarea name="text" rows="2" required placeholder="اكتب الفكرة"></textarea>
+        <div class="chips">${cats.map(([k, l], i) => `<label class="chip"><input type="radio" name="cat" value="${k}" ${i === 1 ? 'checked' : ''}> ${l}</label>`).join('')}</div><button class="btn primary" style="justify-self:start">احفظ</button></form>
+        <div class="small muted" style="margin-top:6px">أو من زرار «المساعد»: قول «فكرة …» وهي تتحط هنا لوحدها.</div></div>
+      <div class="chips" style="margin-bottom:10px"><a class="chip ${c ? '' : 'on'}" href="#ideas">الكل (${E.ar((S.ideas || []).length)})</a>${cats.map(([k, l]) => `<a class="chip ${c === k ? 'on' : ''}" href="#ideas?c=${k}">${l} (${E.ar(n(k))})</a>`).join('')}</div>
+      <div class="grid g2">${cats.filter(([k]) => !c || c === k).map(([k, l]) => { const xs = L.filter(x => x.cat === k); if (c === '' && !xs.length) return '';
+        return `<div class="card"><h2>${IDEA_ICON[k]} ${l}</h2><ul class="list">${xs.map(x => `<li><span style="flex:1">${esc(x.text)}</span><select data-a="idea-cat" data-id="${x.id}" aria-label="نقل">${cats.map(([kk, ll]) => `<option value="${kk}" ${kk === x.cat ? 'selected' : ''}>${ll}</option>`).join('')}</select><span class="small muted">${x.date.slice(5)}</span><button class="btn sm ghost danger" data-a="idea-del" data-id="${x.id}" aria-label="حذف">✕</button></li>`).join('') || '<li class="empty">مفيش أفكار هنا.</li>'}</ul></div>`; }).join('') || '<div class="card"><div class="empty">لسه مفيش أفكار.</div></div>'}</div>`;
+  };
+
+  /** The estimate in the agreed shape: service, amount, approved, proposed, past jobs, projects, the number. */
+  function priceHTML(text) {
+    const x = E.estimatePrice(S, text), cur = 'ريال';
+    if (!x.hasData && !x.jobs.length) return `<div class="small">قاعدة الأسعار لسه مش متحطة. افتح <a href="#file?f=work">ملف الشغل</a> والصق القاعدة مرة واحدة.</div>`;
+    const ap = x.lines.filter(l => l.status === 'approved'), pr = x.lines.filter(l => l.status !== 'approved');
+    const rng = l => l.min === l.max ? `${l.min} ${cur}` : `${l.min}–${l.max} ${cur}`;
+    const li = l => `<li><span style="flex:1">${esc(l.service)}<span class="small muted"> · ${esc(l.per || l.unit)}</span></span><strong>${rng(l)}</strong></li>`;
+    return `<ol class="price">
+      <li><b>الطلب:</b> ${esc(text)}</li>
+      <li><b>الكمية:</b> ${x.qty ? `${x.qty} ${esc(x.unit || '')}` : 'مش واضحة، الأسعار تحت للوحدة أو للعمل كله'}</li>
+      <li><b>من الأسعار المعتمدة:</b>${ap.length ? `<ul class="list">${ap.map(li).join('')}</ul>` : ' مفيش سعر معتمد قريب'}</li>
+      <li><b>مقترح سابق (لم يعتمد):</b>${pr.length ? `<ul class="list">${pr.map(li).join('')}</ul>` : ' لا شيء'}</li>
+      <li><b>أعمال سابقة شبهه:</b> ${x.jobs.length ? x.jobs.map(j => `${esc(j.title)} (${money(j.amount)})`).join('، ') : 'لا شيء مسجل'}</li>
+      <li><b>من ملاحظات القاعدة:</b> ${x.projects.length ? x.projects.map(esc).join(' · ') : 'لا شيء'}</li>
+      <li><b>التقدير:</b> ${x.best ? `في حدود <strong>${x.suggest} ${cur}</strong>، وأقل حاجة ${x.floor} ${cur}` : 'محتاج تحدد الخدمة أوضح'}. لو الطلب فيه أكتر من خدمة، كل خدمة تتسعّر لوحدها وتتجمع.</li></ol>`;
+  }
+  function pricingCard() {
+    const P = (S.work2 || {}).pricing, ap = P ? P.refs.filter(r => r.status === 'approved').length : 0;
+    const paste = `<form data-form="pricing-set" style="display:grid;gap:8px;margin-top:6px"><textarea name="text" rows="6" required placeholder="الصق «قاعدة بيانات التسعير» كلها هنا">${P ? esc(P.text) : ''}</textarea><button class="btn primary" style="justify-self:start">احفظ القاعدة</button></form>`;
+    return `<div class="card" data-s="work"><h2>تسعير الأعمال البحثية</h2>
+      ${P ? `<div class="small muted">القاعدة محفوظة على الجهاز ده بس: ${E.ar(ap)} سعر معتمد و${E.ar(P.refs.length - ap)} مقترح.</div>` : `<div class="small">الصق القاعدة مرة واحدة. بتفضل على جهازك ومش بتظهر في الكود العام.</div>${paste}`}
+      <form class="row" data-form="price-est" style="margin-top:8px"><input type="text" name="text" required placeholder="مثلاً: مراجعة علمية ٢٤٠ صفحة" style="flex:1"><button class="btn sm primary">قدّر</button></form>
+      <div id="price-out" style="margin-top:6px"></div>
+      ${P ? `<details style="margin-top:8px"><summary class="small muted">عرض القاعدة أو تغييرها</summary>${paste}</details>` : ''}</div>`;
+  }
+
+  V.cal = (q) => {
+    const mode = q.get('m') === 'month' ? 'month' : 'week', d = q.get('d') || today();
+    const evs = day => Object.values(S.events || {}).filter(e => e.start.slice(0, 10) === day).sort((a, b) => a.start.localeCompare(b.start));
+    const ev = e => `<div class="cev" data-s="${E.fileOfArea ? (E.fileOfArea(e.area) || '') : ''}">${e.allDay ? '' : `<span class="tm">${e.start.slice(11, 16)}</span> `}${esc(e.title)}</div>`;
+    const [y, mo] = d.split('-').map(Number), gUrl = `https://calendar.google.com/calendar/r/${mode}/${y}/${mo}/${+d.slice(8)}`;
+    let body, prev, next, label;
+    if (mode === 'week') {
+      const ws = E.weekStart(d); prev = E.addDays(ws, -7); next = E.addDays(ws, 7); label = `${fmtDate(ws)} – ${fmtDate(E.addDays(ws, 6))}`;
+      body = `<div class="calw">${[0, 1, 2, 3, 4, 5, 6].map(i => { const k = E.addDays(ws, i), xs = evs(k);
+        return `<div class="cd ${k === today() ? 'now' : ''}"><div class="ch">${fmtDate(k)}</div>${xs.map(ev).join('') || '<div class="small muted">—</div>'}</div>`; }).join('')}</div>`;
+    } else {
+      const [ms, me] = E.periodRange('month', d), gs = E.weekStart(ms); prev = E.addDays(ms, -1).slice(0, 8) + '01'; next = E.addDays(me, 1); label = `${['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'][mo - 1]} ${y}`;
+      const cells = []; for (let k = gs; k <= me || cells.length % 7; k = E.addDays(k, 1)) cells.push(k);
+      body = `<div class="calm">${cells.slice(0, 7).map(k => `<div class="cwh">${dayName(k)}</div>`).join('')}${cells.map(k => { const xs = evs(k);
+        return `<a class="cm ${k.slice(0, 7) !== ms.slice(0, 7) ? 'out' : ''} ${k === today() ? 'now' : ''}" href="#cal?m=week&d=${k}"><b>${+k.slice(8)}</b>${xs.length ? `<span class="cnt">${xs.length}</span>` : ''}${xs.slice(0, 3).map(e => `<i>${esc(e.title)}</i>`).join('')}${xs.length > 3 ? `<i class="muted">+${xs.length - 3}</i>` : ''}</a>`; }).join('')}</div>`;
+    }
+    return `<div class="row noprint" style="margin-bottom:10px;flex-wrap:wrap"><a class="btn" href="#cal?m=${mode}&d=${prev}">→</a><strong>${label}</strong><a class="btn" href="#cal?m=${mode}&d=${next}">←</a><span style="flex:1"></span>
+        <a class="chip ${mode === 'week' ? 'on' : ''}" href="#cal?m=week&d=${d}">أسبوع</a><a class="chip ${mode === 'month' ? 'on' : ''}" href="#cal?m=month&d=${d}">شهر</a>
+        <button class="btn sm" data-a="cal-sync">↻ تحديث</button><a class="btn sm" href="${gUrl}" target="_blank" rel="noopener">افتح في جوجل</a></div>
+      <div class="card">${body}</div><div class="small muted" style="margin-top:6px">ده نفس اللي في تقويم جوجل بعد آخر ↻. الإضافة والتعديل من جوجل، وهنا بيتعرض.</div>`;
+  };
+
+  /** «المساعد»: speak or type one line; its first word says where it goes. Unknown lines fall back to the questions. */
+  const CMD_KINDS = { idea: 'فكرة', task: 'مهمة النهارده', waste: 'وقت ضايع', done: 'إنجاز', price: 'تقدير سعر', research: 'عمل بحثي' };
+  function commandSave(c) {
+    const now = nowStamp(), end = E.toMin(now.slice(11, 16));
+    if (c.kind === 'idea') { E.addIdea(S, c.text, c.cat, today()); return 'اتحطت في الأفكار (' + E.IDEA_CATS[c.cat] + ')'; }
+    if (c.kind === 'task') { S.tasks.push({ id: E.uid('t'), title: c.text, area: 'work', duration: c.minutes || 30, priority: 2, energy: 'medium', due: today(), projectRef: null, recurrence: null, status: 'active', source: 'المساعد' }); return 'اتضافت لمهام النهارده'; }
+    if (c.kind === 'log') { E.logActivity(S, { date: today(), start: H(Math.max(0, end - c.minutes)), end: H(end), area: c.category === 'unplanned' ? 'rest' : 'work', category: c.category, title: c.text, note: 'من المساعد' }); return c.category === 'unplanned' ? `اتسجل وقت ضايع ${D(c.minutes)}` : `اتسجل إنجاز ${D(c.minutes)}`; }
+    if (c.kind === 'research') { S.work2.research.push({ id: E.uid('rs'), title: c.text, amount: c.amount || 0, received: false, date: today() }); return 'اتضاف للعمل البحثي'; }
+    return '';
+  }
   function assistantDialog() {
-    const Qs = ['ماذا أفعل الآن؟', 'ما أهم مشروع متعثر؟', 'أين يذهب وقتي؟', 'لماذا لا أتقدم في المشروع العلمي؟', 'هل حمّلت نفسي أكثر من طاقتي؟', 'ما الذي يمكن تأجيله هذا الأسبوع؟', 'ما أفضل توزيع للوقت الأسبوع القادم؟'];
-    modal(`<h2>المساعد <span class="tag">${Store.server && Store.server.ai ? 'من بياناتك + Claude' : 'من بياناتك'}</span></h2><div class="chat" id="chat"></div><div class="chips">${Qs.map(q => `<button data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
-      <form id="ask" class="row" style="margin-top:8px"><input type="text" name="q" style="flex:1" placeholder="اكتب سؤالك"><button class="btn primary">اسأل</button></form>`, m => {
-      const chat = $('#chat', m);
-      async function ask(q) {
-        chat.insertAdjacentHTML('beforeend', `<div class="q">${esc(q)}</div>`);
-        let a = E.assistant(S, q, nowStamp());
-        const generic = a.startsWith('أستطيع الإجابة');
-        if (Store.server && Store.server.ai && generic) {
-          chat.insertAdjacentHTML('beforeend', '<div class="a muted" id="pending">…</div>');
-          try { const r = await fetch('api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, context: E.assistantContext(S, nowStamp()) }) }); const j = await r.json(); a = j.answer || j.error || a; } catch (e) { a += '\n(تعذر الوصول للمساعد الذكي)'; }
-          const p = $('#pending', m); if (p) p.remove();
-        }
-        chat.insertAdjacentHTML('beforeend', `<div class="a">${esc(a)}</div>`); chat.scrollTop = chat.scrollHeight;
+    const Qs = ['ماذا أفعل الآن؟', 'أين يذهب وقتي؟', 'ما الذي يمكن تأجيله هذا الأسبوع؟'];
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    modal(`<h2>المساعد</h2><div class="small muted">ابدأ بكلمة: <b>فكرة</b> · <b>مهمة</b> · <b>ضيّعت</b> · <b>عملت</b> · <b>سعّر</b> · <b>عمل بحثي</b></div>
+      <form id="ask" class="row" style="margin-top:8px">${SR ? '<button type="button" class="btn mic" id="mic" aria-label="اتكلم">🎤</button>' : ''}<input type="text" name="q" style="flex:1" placeholder="مثلاً: فكرة درس عن الصبر"><button class="btn primary">تمام</button></form>
+      <div id="cmd" style="margin-top:8px"></div><div class="chat" id="chat"></div><div class="chips">${Qs.map(q => `<button data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`, m => {
+      const chat = $('#chat', m), box = $('#cmd', m), inp = m.querySelector('[name=q]');
+      const ask = q => { chat.insertAdjacentHTML('beforeend', `<div class="q">${esc(q)}</div><div class="a">${esc(E.assistant(S, q, nowStamp()))}</div>`); chat.scrollTop = chat.scrollHeight; };
+      function preview(c) {
+        if (c.kind === 'unknown') { box.innerHTML = ''; ask(c.text); return; }
+        if (c.kind === 'price') { box.innerHTML = `<div class="cmdp">${priceHTML(c.text)}</div>`; to12(box); return; }
+        const k = c.kind === 'log' ? (c.category === 'unplanned' ? 'waste' : 'done') : c.kind;
+        box.innerHTML = `<div class="cmdp"><div class="small muted">هيتحط في</div><div class="chips">${['idea', 'task', 'waste', 'done', 'research'].map(x => `<button type="button" data-k="${x}" class="${x === k ? 'on' : ''}">${CMD_KINDS[x]}</button>`).join('')}</div>
+          ${c.kind === 'idea' ? `<div class="chips">${Object.entries(E.IDEA_CATS).map(([x, l]) => `<button type="button" data-c="${x}" class="${x === c.cat ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
+          <div style="margin:6px 0"><b>${esc(c.text)}</b>${c.minutes && c.kind !== 'idea' ? ` <span class="small muted">· ${D(c.minutes)}</span>` : ''}${c.kind === 'research' && c.amount ? ` <span class="small muted">· ${money(c.amount)}</span>` : ''}</div>
+          <button type="button" class="btn primary" id="cmd-ok">احفظ</button></div>`;
+        box.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => { const x = b.dataset.k;
+          preview(Object.assign({}, c, x === 'waste' || x === 'done' ? { kind: 'log', category: x === 'waste' ? 'unplanned' : 'achievement', minutes: c.minutes || 30 } : { kind: x, cat: c.cat || 'life', minutes: c.minutes || 30 })); }));
+        box.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => preview(Object.assign({}, c, { cat: b.dataset.c }))));
+        $('#cmd-ok', box).addEventListener('click', () => { const msg = commandSave(c); save(); closeModal(); render(); toast(msg); });
       }
+      const run = t => { t = t.trim(); if (t) preview(E.parseCommand(t)); };
       m.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => ask(b.dataset.q)));
-      $('#ask', m).addEventListener('submit', e => { e.preventDefault(); const q = e.target.q.value.trim(); if (q) { ask(q); e.target.q.value = ''; } });
+      $('#ask', m).addEventListener('submit', e => { e.preventDefault(); run(inp.value); });
+      const mic = $('#mic', m);
+      if (mic) mic.addEventListener('click', () => {
+        const r = new SR(); r.lang = 'ar-EG'; r.interimResults = true; mic.classList.add('on');
+        r.onresult = ev => { inp.value = Array.from(ev.results).map(x => x[0].transcript).join(' '); if (ev.results[ev.results.length - 1].isFinal) run(inp.value); };
+        r.onerror = ev => toast(ev.error === 'not-allowed' ? 'اسمح للمتصفح يستخدم المايك' : 'المايك مسمعش، جرّب تاني أو اكتب');
+        r.onend = () => mic.classList.remove('on'); r.start();
+      });
     });
   }
 
@@ -2633,6 +2834,8 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       case 'qweak': if (t.dataset.r !== 'weak') E.rateWeakAgain(S, today(), t.dataset.from, t.dataset.part); else toast('يبقى في قائمة الإعادة'); save(); render(); break;
       case 'qismail': E.ismailRecited(S, today(), t.dataset.r); save(); render(); toast('سُجّل التسميع، والحزب التالي جاهز'); break;
       case 'assistant': assistantDialog(); break;
+      case 'idea-del': if (confirm('حذف الفكرة؟')) { S.ideas = S.ideas.filter(x => x.id !== t.dataset.id); save(); render(); } break;
+      case 'cal-sync': syncCalendarLive(); break;
     }
   });
   document.addEventListener('change', e => {
@@ -2648,6 +2851,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     if (a === 'pj-title') { const p = S.sciProjects.find(x => x.id === t.dataset.p); p.title = t.value.trim() || p.title; save(); return; }
     if (a === 'ctodo-chk') { S.charity.todo.find(y => y.id === t.dataset.id).done = t.checked; save(); return; }
     if (a === 'rq-chk') { const r = S.charity.requests.find(y => y.id === t.dataset.id); r.done = today(); save(); render(); toast('تم ✓'); return; }
+    if (a === 'idea-cat') { S.ideas.find(x => x.id === t.dataset.id).cat = t.value; save(); render(); return; }
     if (a === 'rs-chk') { S.work2.research.find(y => y.id === t.dataset.id).received = t.checked; save(); render(); return; }
     if (a === 'dv-chk') { S.work2.devices.find(y => y.id === t.dataset.id).delivered = t.checked; save(); return; }
     if (a === 'ev-prep') { const k = t.dataset.k; S.taskStatus[k] = Object.assign(S.taskStatus[k] || {}, { prep: t.checked }); save(); render(); return; }
@@ -2690,8 +2894,11 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       if (f.dataset.form === 'q-personal') E.addLedger(S, { date: v.date, kind: 'personal', amount: v.amount, sign: v.sign, note: v.note }).acc = (v.acc || '').trim();
       if (f.dataset.form === 'q-sale') { const W = S.work2; W.sales = W.sales || []; const pn = v.product.trim(); W.products = W.products || []; if (pn && !W.products.some(x => x.name === pn)) W.products.push({ name: pn, cost: +v.cost || 0, price: +v.price || 0 });
         W.sales.push({ id: E.uid('sl'), date: v.date, product: pn, price: +v.price || 0, cost: +v.cost || 0, profit: (+v.price || 0) - (+v.cost || 0) }); }
+      if (f.dataset.form === 'idea-add') { E.addIdea(S, v.text, v.cat, today()); toast('اتحفظت'); }
+      if (f.dataset.form === 'pricing-set') { const P = E.setPricing(S, v.text); toast(`اتحفظت: ${P.refs.length} سعر`); }
+      if (f.dataset.form === 'price-est') { const o = $('#price-out'); o.innerHTML = priceHTML(v.text); return; }
       if (f.dataset.form === 'q-ctodo') S.charity.todo.push({ id: E.uid('ct'), title: v.title, done: false });
-      if (f.dataset.form === 'q-research') S.work2.research.push({ id: E.uid('rs'), title: v.title, amount: +v.amount || 0, received: false });
+      if (f.dataset.form === 'q-research') S.work2.research.push({ id: E.uid('rs'), title: v.title, service: (v.service || '').trim(), qty: (v.qty || '').trim(), amount: +v.amount || 0, received: false, date: today() });
       if (f.dataset.form === 'q-device') { const W = S.work2, dv = v.device.trim(); if (dv && !W.deviceTypes.includes(dv)) W.deviceTypes.push(dv); W.devices.push({ id: E.uid('dv'), device: dv, client: v.client, delivered: false, profit: +v.profit || 0 }); }
       if (/^q-/.test(f.dataset.form)) { closeModal(); toast('اتسجل'); }
       if (f.dataset.form === 'gcid') { S.settings.googleClientId = v.gcid.trim(); toast('اتحفظ'); }
@@ -2740,12 +2947,12 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   function render() {
     while (charts.length) charts.pop().destroy();
     const r = route(), q = new URLSearchParams(location.hash.split('?')[1] || ''), sec = SECTIONS.find(s => s[0] === r) || SECTIONS[0];
-    const navOn = MAIN.some(m => m[0] === sec[0]) ? sec[0] : sec[0] === 'goals2' || sec[0] === 'report' || sec[0] === 'file' || sec[0] === 'appts' || ['quran', 'phd', 'books', 'work', 'projects', 'family', 'health'].includes(sec[0]) ? 'files' : sec[0] === 'day' ? 'today' : sec[0] === 'reports' || sec[0] === 'time' ? 'report' : 'today';
+    const navOn = MAIN.some(m => m[0] === sec[0]) ? sec[0] : sec[0] === 'goals2' || sec[0] === 'report' || sec[0] === 'file' || sec[0] === 'appts' || ['quran', 'phd', 'books', 'work', 'projects', 'family', 'health', 'ideas'].includes(sec[0]) ? 'files' : sec[0] === 'day' ? 'today' : sec[0] === 'reports' || sec[0] === 'time' ? 'report' : 'today';
     $('#nav').innerHTML = MAIN.map(([id, name]) => `<a href="#${id}" class="${id === navOn ? 'on' : ''}"><span class="n">${NAV_ICON[id]}</span>${name}</a>`).join('');
     $('#title').textContent = sec[0] === 'file' ? ((E.FILES.find(f => f.id === q.get('f')) || {}).name || 'الملف') : sec[1];
     $('#today').textContent = `${fmtDate(today())} · ${nowStamp().slice(11, 16)}`;
     let html; try { html = V[sec[0]](q); } catch (err) { console.error(err); html = `<div class="card"><h2>تعذر عرض القسم</h2><pre class="small">${esc(err.stack || err)}</pre></div>`; }
-    $('#view').innerHTML = html;
+    $('#view').innerHTML = html; to12($('#view')); to12($('.top'));
     $('#view').dataset.s = sec[0] === 'file' ? ((E.FILES.find(f => f.id === q.get('f')) || E.FILES[0]).id) : '';
     $('.top').dataset.s = $('#view').dataset.s;
     $('.side').classList.remove('open');
