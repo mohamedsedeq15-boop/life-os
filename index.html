@@ -257,7 +257,7 @@ ol.price{margin:0;padding-inline-start:20px;display:grid;gap:6px;font-size:14px}
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1539';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1549';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1232,7 +1232,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const nums = s => (norm(s).match(/\d+(?:\.\d+)?/g) || []).map(Number);
     for (const raw of String(text).split('\n')) {
       const line = raw.trim(); if (!line) continue;
-      if (/^(اولا|ثانيا|ثالثا|رابعا|خامسا|سادسا|قاعده اخيره)/.test(norm(line).replace(/[:：]/, ''))) {
+      if (/^(اولا|ثانيا|ثالثا|رابعا|خامسا|سادسا|سابعا|قاعده اخيره|اضافه)/.test(norm(line).replace(/[:：]/, ''))) {
         const n = norm(line); status = /لم تعتمد|مقترح/.test(n) ? 'proposed' : 'approved';
         block = { title: line.replace(/[:：]\s*$/, ''), lines: [] }; notes.push(block); continue;
       }
@@ -1249,6 +1249,12 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       else notes.push({ title: '', lines: [line] });
     }
     return { refs, notes };
+  }
+  /** One more reference typed in the app; it is appended to the stored text so the base stays one editable text. */
+  function addPriceRef(state, service, price, unit, proposed) {
+    const P = (state.work2 || {}).pricing, head = proposed ? 'إضافة (مقترح لم يعتمد):' : 'إضافة معتمدة:';
+    const line = `${service.trim()}| ${String(price).trim()}${/ريال/.test(price) ? '' : ' ريال'}| ${(unit || 'العمل').trim()}`;
+    return setPricing(state, ((P && P.text) || '').trimEnd() + `\n\n${head}\n${line}\n`);
   }
   function setPricing(state, text) {
     const P = parsePricing(text), W = state.work2 = state.work2 || {};
@@ -1613,7 +1619,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
 
   const API = { AREAS, CATS, AREA_TO_CAT, DAY_NAMES, SLOT, hm, toMin, dateStr, parseDate, addDays, weekday, localStamp, relMin, daysBetween, weekStart, range, uid, clone, ar, fmtDur, hash,
-    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
+    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
     eventsOn, eventView, planDay, savePlan, currentPlan, replanDay, diffPlans, capacity, taskInstances, logActivity, addIncident, addEnergy, instanceDone,
     periodRange, analyze, reportText, assistant, assistantContext, pearson };
   g.LifeOS = API;
@@ -2683,6 +2689,9 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       ${P ? `<div class="small muted">القاعدة محفوظة على الجهاز ده بس: ${E.ar(ap)} سعر معتمد و${E.ar(P.refs.length - ap)} مقترح.</div>` : `<div class="small">الصق القاعدة مرة واحدة. بتفضل على جهازك ومش بتظهر في الكود العام.</div>${paste}`}
       <form class="row" data-form="price-est" style="margin-top:8px"><input type="text" name="text" required placeholder="مثلاً: مراجعة علمية ٢٤٠ صفحة" style="flex:1"><button class="btn sm primary">قدّر</button></form>
       <div id="price-out" style="margin-top:6px"></div>
+      <details style="margin-top:8px"><summary class="small">＋ زوّد سعر للقاعدة</summary><form data-form="price-add" style="display:grid;gap:8px;margin-top:6px">
+        <input type="text" name="service" required placeholder="الخدمة (مثلاً: فهرسة كتاب)"><div class="row"><input type="text" name="price" required placeholder="السعر (مثلاً: 10 أو 150–200)" style="flex:1"><input type="text" name="unit" placeholder="الوحدة (الصفحة، المجلد، العمل)" style="flex:1"></div>
+        <label class="small"><input type="checkbox" name="proposed"> مقترح لسه ما اتعتمدش</label><button class="btn sm primary" style="justify-self:start">زوّد</button></form></details>
       ${P ? `<details style="margin-top:8px"><summary class="small muted">عرض القاعدة أو تغييرها</summary>${paste}</details>` : ''}</div>`;
   }
 
@@ -2722,7 +2731,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const Qs = ['ماذا أفعل الآن؟', 'أين يذهب وقتي؟', 'ما الذي يمكن تأجيله هذا الأسبوع؟'];
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     modal(`<h2>المساعد</h2><div class="small muted">ابدأ بكلمة: <b>فكرة</b> · <b>مهمة</b> · <b>ضيّعت</b> · <b>عملت</b> · <b>سعّر</b> · <b>عمل بحثي</b></div>
-      <form id="ask" class="row" style="margin-top:8px">${SR ? '<button type="button" class="btn mic" id="mic" aria-label="اتكلم">🎤</button>' : ''}<input type="text" name="q" style="flex:1" placeholder="مثلاً: فكرة درس عن الصبر"><button class="btn primary">تمام</button></form>
+      <form id="ask" class="row" style="margin-top:8px"><button type="button" class="btn mic" id="mic" aria-label="اتكلم">🎤</button><input type="text" name="q" style="flex:1" placeholder="مثلاً: فكرة درس عن الصبر"><button class="btn primary">تمام</button></form>
       <div id="cmd" style="margin-top:8px"></div><div class="chat" id="chat"></div><div class="chips">${Qs.map(q => `<button data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`, m => {
       const chat = $('#chat', m), box = $('#cmd', m), inp = m.querySelector('[name=q]');
       const ask = q => { chat.insertAdjacentHTML('beforeend', `<div class="q">${esc(q)}</div><div class="a">${esc(E.assistant(S, q, nowStamp()))}</div>`); chat.scrollTop = chat.scrollHeight; };
@@ -2743,11 +2752,14 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       m.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => ask(b.dataset.q)));
       $('#ask', m).addEventListener('submit', e => { e.preventDefault(); run(inp.value); });
       const mic = $('#mic', m);
+      const kbHint = why => { inp.focus(); box.innerHTML = `<div class="cmdp small">${why} استخدم مايك الكيبورد بدلها: دوس في الخانة، وبعدين علامة 🎤 اللي في الكيبورد نفسه، واتكلم، وبعدين «تمام».</div>`; };
       if (mic) mic.addEventListener('click', () => {
-        const r = new SR(); r.lang = 'ar-EG'; r.interimResults = true; mic.classList.add('on');
+        if (!SR) return kbHint('المتصفح ده مفيهوش التعرف على الصوت.');
+        let r; try { r = new SR(); } catch (e) { return kbHint('المايك مش متاح هنا.'); }
+        r.lang = 'ar-EG'; r.interimResults = true; mic.classList.add('on'); r.onstart = () => toast('اتكلم دلوقتي…');
         r.onresult = ev => { inp.value = Array.from(ev.results).map(x => x[0].transcript).join(' '); if (ev.results[ev.results.length - 1].isFinal) run(inp.value); };
-        r.onerror = ev => toast(ev.error === 'not-allowed' ? 'اسمح للمتصفح يستخدم المايك' : 'المايك مسمعش، جرّب تاني أو اكتب');
-        r.onend = () => mic.classList.remove('on'); r.start();
+        r.onerror = ev => { mic.classList.remove('on'); ev.error === 'no-speech' ? toast('مسمعتش حاجة، جرّب تاني') : kbHint(ev.error === 'not-allowed' || ev.error === 'service-not-allowed' ? 'المايك مش مسموح له (من إعدادات المتصفح، أو التطبيق المتثبت على الشاشة مش بيسمح بيه).' : `المايك وقف (${ev.error}).`); };
+        r.onend = () => mic.classList.remove('on'); try { r.start(); } catch (e) { mic.classList.remove('on'); kbHint('المايك مش متاح هنا.'); }
       });
     });
   }
@@ -2905,6 +2917,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
         W.sales.push({ id: E.uid('sl'), date: v.date, product: pn, price: +v.price || 0, cost: +v.cost || 0, profit: (+v.price || 0) - (+v.cost || 0) }); }
       if (f.dataset.form === 'idea-add') { E.addIdea(S, v.text, v.cat, today()); toast('اتحفظت'); }
       if (f.dataset.form === 'pricing-set') { const P = E.setPricing(S, v.text); toast(`اتحفظت: ${P.refs.length} سعر`); }
+      if (f.dataset.form === 'price-add') { const P = E.addPriceRef(S, v.service, v.price, v.unit, v.proposed === 'on'); toast(`اتضاف · القاعدة فيها ${E.ar(P.refs.length)} سعر`); }
       if (f.dataset.form === 'price-est') { const o = $('#price-out'); o.innerHTML = priceHTML(v.text); return; }
       if (f.dataset.form === 'q-ctodo') S.charity.todo.push({ id: E.uid('ct'), title: v.title, done: false });
       if (f.dataset.form === 'q-research') S.work2.research.push({ id: E.uid('rs'), title: v.title, service: (v.service || '').trim(), qty: (v.qty || '').trim(), amount: +v.amount || 0, received: false, date: today() });
