@@ -1656,9 +1656,8 @@ window.LIFEOS_SNAPSHOT = null;</script>
     if (f.id === 'worship') extra = `<div class="card"><h2>الأوراد اليومية</h2><ul class="list">${(S.awrad || []).map((w, i) => `<li><span style="flex:1"><input type="text" value="${esc(w.title)}" data-a="wird-edit" data-i="${i}" style="width:100%">${w.note ? `<div class="small muted">${esc(w.note)}</div>` : ''}</span><span class="small muted">${streak(w.id)} أيام متتالية</span><button class="btn sm ghost danger" data-a="wird-del" data-i="${i}">✕</button></li>`).join('')}</ul><form class="row" data-form="wird-add"><input type="text" name="title" placeholder="ورد جديد" required style="flex:1"><button class="btn sm">إضافة</button></form></div>` + V.quran();
     if (f.id === 'knowledge') extra = V.knowledge();
     if (f.id === 'projects') extra = V.phd() + `<div style="margin-top:14px"></div>` + V.projects();
-    if (f.id === 'work') extra = V.work();
+    // work & charity: goals only (user, 23 Nov: no sales tables, case counts or org summary)
     if (f.id === 'family') extra = V.family();
-    if (f.id === 'charity') extra = charityView();
     return `<div class="row noprint" style="margin-bottom:10px"><a class="btn" href="#files">→ كل الملفات</a></div><div class="grid">${goalsCard}${extra}</div>`;
   };
   function streak(id) { let n = 0, d = today(); if (!((S.awradLog || {})[d] || {})[id]) d = E.addDays(d, -1); while (((S.awradLog || {})[d] || {})[id]) { n++; d = E.addDays(d, -1); } return E.ar(n); }
