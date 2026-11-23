@@ -130,7 +130,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0236';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0245';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1075,7 +1075,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const cats = [...new Set(CHARITY_CATS.concat(pend.map(e => e.cat)))];
     const pending = cats.map(c => ({ cat: c, items: pend.filter(e => e.cat === c), total: sum(pend.filter(e => e.cat === c)) })).filter(g => g.items.length);
     const onHand = inTotal - outDone, pendingTotal = sum(pend);
-    return { inTotal, outDone, onHand, pending, pendingTotal, gap: onHand - pendingTotal, personal: L.filter(e => e.kind === 'personal').reduce((t, e) => t + e.sign * e.amount, 0) };
+    return { inTotal, outDone, onHand, pending, pendingTotal, gap: onHand - pendingTotal, personal: L.filter(e => e.kind === 'personal' && !e.settled).reduce((t, e) => t + e.sign * e.amount, 0) };
   }
   /** Goals of this month that belong to an appointment (e.g. a lesson prep goal under that lesson): shared distinctive word. */
   const LINK_STOP = new Set(['تحضير', 'درس', 'الدرس', 'مراجعة', 'حصة', 'جلسة', 'يوميا', 'ألقيه', 'المسجد', 'الثانية', 'الأسبوع', 'وتحضير', 'التفسير', 'الشيخ', 'القرآن', 'الجديد', 'محمد']);
@@ -1128,7 +1128,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const x = ledgerSummary(state), pend = state.charity.ledger.filter(e => e.kind === 'out' && e.status === 'pending').slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     let left = Math.max(0, x.onHand); const covered = [], waiting = [];
     for (const e of pend) { if (e.amount <= left) { covered.push(e); left -= e.amount; } else waiting.push(e); }
-    const env = arr => { const m = new Map(); for (const e of arr) { const k = e.list || e.cat || 'متفرقات'; m.set(k, (m.get(k) || 0) + e.amount); } return [...m].map(([list, total]) => ({ list, total })); };
+    const env = arr => { const m = new Map(); for (const e of arr) { const k = e.list || e.cat || 'متفرقات'; if (!m.has(k)) m.set(k, { list: k, total: 0, items: [] }); const g = m.get(k); g.total += e.amount; g.items.push(e); } return [...m.values()]; };
     const sum = a => a.reduce((t, e) => t + e.amount, 0);
     return { onHand: x.onHand, need: x.pendingTotal, take: sum(covered), envelopes: env(covered), covered, waiting, waitingTotal: sum(waiting), waitingEnvelopes: env(waiting), spare: left, short: Math.max(0, x.pendingTotal - Math.max(0, x.onHand)) };
   }
@@ -1829,13 +1829,13 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   function quickForm(k) {
     const d = `<input type="hidden" name="date" value="${today()}">`, note = (ph) => `<label class="f">ملاحظة<input type="text" name="note" placeholder="${ph}"></label>`;
     const amt = `<label class="f">المبلغ<input type="number" name="amount" min="0" step="1" inputmode="numeric" required></label>`;
-    if (k === 'paste') return `<h2>لصق رسالة الجروب</h2><p class="small muted">انسخ رسالة أو أكتر من رسايل «دفعة» زي ما هي والصقها هنا. البنود بتروح لقائمة الأربعاء، والأسماء مش بتتحفظ.</p>
+    if (k === 'paste') return `<h2>لصق رسالة الجروب</h2><p class="small muted">انسخ رسالة أو أكتر من رسايل «دفعة» زي ما هي والصقها هنا. البنود بتروح لقائمة الأربعاء بتفاصيلها، واسم اللي باعت الرسالة مش بيتحفظ.</p>
       <form class="form" data-form="q-paste"><textarea name="txt" rows="7" required style="width:100%"></textarea><div id="paste-prev" class="small"></div>
       <label class="f"><span><input type="checkbox" name="received"> فلوسها وصلتني خلاص</span></label><label class="f"><span><input type="checkbox" name="done"> دي اتوزعت قبل كده (أرشيف بس)</span></label><button class="btn primary">سجّل</button></form>`;
     if (k === 'in') return `<h2>فلوس وصلت للجمعية</h2><form class="form" data-form="q-in">${d}${amt}${note('من مين أو لأي حالات')}<button class="btn primary">سجّل</button></form>`;
     if (k === 'out') return `<h2>صرف (قائمة الأربعاء)</h2><form class="form" data-form="q-out">${d}${amt}<label class="f">النوع<select name="cat">${E.CHARITY_CATS.map(c => `<option>${c}</option>`).join('')}</select></label>${note('رقم الحالة أو وصف قصير، بلا أسماء ولا أرقام قومية')}<button class="btn primary">أضف للقائمة</button></form>`;
     if (k === 'personal') return `<h2>ليّا / عليّا</h2><form class="form" data-form="q-personal">${d}${amt}<label class="f">الاتجاه<select name="sign"><option value="+">ليّا</option><option value="-">عليّا</option></select></label>
-      <label class="f">مع حساب<input type="text" name="acc" list="accs" placeholder="المطبخ، الدفعة، الشهريات…" required></label><datalist id="accs">${personalAccs().map(a => `<option value="${esc(a)}">`).join('')}</datalist>${note('اختياري')}<button class="btn primary">سجّل</button></form>`;
+      <label class="f">مع حساب<input type="text" name="acc" list="accs" placeholder="المطبخ، الدفعة، الشهريات، أو اسم" required></label><datalist id="accs">${personalAccs().map(a => `<option value="${esc(a)}">`).join('')}</datalist><label class="f">علشان إيه<input type="text" name="note" required></label><button class="btn primary">سجّل</button></form>`;
     if (k === 'sale') { const P = S.work2.products || []; return `<h2>تسجيل بيع</h2><form class="form" data-form="q-sale">${d}<label class="f">المنتج<input type="text" name="product" list="prods" required></label><datalist id="prods">${P.map(p => `<option value="${esc(p.name)}">`).join('')}</datalist>
       <label class="f">سعر البيع<input type="number" name="price" min="0" inputmode="numeric" required></label><label class="f">سعر الجملة<input type="number" name="cost" min="0" inputmode="numeric" required></label><div class="small" id="sale-profit"></div><button class="btn primary">سجّل</button></form>`; }
     if (k === 'ctodo') return `<h2>هدف خيري</h2><form class="form" data-form="q-ctodo"><label class="f">الهدف<input type="text" name="title" required></label><button class="btn primary">أضف</button></form>`;
@@ -1855,10 +1855,13 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       ${todo.length ? `<div class="chips" style="margin-top:8px">${todo.map(t => `<button data-a="ctodo" data-id="${t.id}" title="علّمه تم">☐ ${esc(t.title)}</button>`).join('')}</div>` : ''}
       ${wed ? wedList() : ''}</div>`;
   }
+  /** Open «ليّا / عليّا» items: each says with which account and for what; «خدتهم / رجّعتهم» settles it (kept in the history). */
   function accLines() {
-    const m = new Map(); for (const e of (S.charity.ledger || []).filter(e => e.kind === 'personal')) { const k = e.acc || 'عام'; m.set(k, (m.get(k) || 0) + e.sign * e.amount); }
-    const rows = [...m].filter(([, v]) => v);
-    return rows.length ? `<div>ليّا وعليّا: ${rows.map(([k, v]) => `${esc(k)} <strong>${money(Math.abs(v))}</strong> ${v > 0 ? 'ليّا' : 'عليّا'}`).join(' · ')}</div>` : '';
+    const open = (S.charity.ledger || []).filter(e => e.kind === 'personal' && !e.settled);
+    if (!open.length) return '';
+    const row = e => `<li><span style="flex:1"><strong>${e.sign > 0 ? 'ليّا' : 'عليّا'}</strong> ${e.sign > 0 ? 'من' : 'لـ'} ${esc(e.acc || '—')}${e.note ? ` <span class="small muted">— ${esc(e.note)}</span>` : ''}</span><strong>${money(e.amount)}</strong><button class="btn sm" data-a="pr-settle" data-id="${e.id}">${e.sign > 0 ? 'خدتهم' : 'رجّعتهم'}</button></li>`;
+    const tot = k => open.filter(e => e.sign === k).reduce((a, e) => a + e.amount, 0);
+    return `<div style="margin-top:6px"><strong>ليّا ${money(tot(1))} · عليّا ${money(tot(-1))}</strong><ul class="list">${open.map(row).join('')}</ul></div>`;
   }
   const personalAccs = () => [...new Set(['المطبخ', 'الدفعة', 'الشهريات'].concat((S.charity.ledger || []).filter(e => e.kind === 'personal' && e.acc).map(e => e.acc)))];
   function saleForm(m) {
@@ -1877,7 +1880,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
   /** Wednesday: how much to take, split into envelopes per list; what the money on hand doesn't cover waits or comes from the user's pocket. */
   function wedList() {
-    const p = E.wedPlan(S), envs = a => `<ul class="list">${a.map(v => `<li><span style="flex:1">${esc(v.list)}</span><strong>${money(v.total)}</strong></li>`).join('')}</ul>`;
+    const p = E.wedPlan(S), envs = a => `<ul class="list">${a.map(v => `<li><span style="flex:1"><strong>${esc(v.list)}</strong>${v.items.length > 1 || (v.items[0] && v.items[0].note && v.items[0].note !== v.list) ? `<br><span class="small muted">${v.items.map(e => esc(String(e.note || '—').replace(/^[^·]*·\s*/, '')) + ' ' + money(e.amount)).join('، ')}</span>` : ''}</span><strong>${money(v.total)}</strong></li>`).join('')}</ul>`;
     return `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">
       <div><strong>انزل بـ ${money(p.take)}</strong> <span class="small muted">معاك ${money(p.onHand)} · المطلوب كله ${money(p.need)}</span></div>
       ${p.envelopes.length ? `<div class="small muted" style="margin-top:4px">قسّمها كده:</div>${envs(p.envelopes)}` : ''}
@@ -1887,7 +1890,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
   function charityFile() {
     const x = E.ledgerSummary(S), L = (S.charity.ledger || []).slice().reverse().slice(0, 40), todo = S.charity.todo || [];
-    const kindTxt = e => e.kind === 'in' ? 'وصل' : e.kind === 'out' ? (e.status === 'done' ? 'اتوزع' : 'للأربعاء') + ' · ' + esc(e.list || e.cat) : (e.sign < 0 ? 'عليّا' : 'ليّا');
+    const kindTxt = e => e.kind === 'in' ? 'وصل' : e.kind === 'out' ? (e.status === 'done' ? 'اتوزع' : 'للأربعاء') + ' · ' + esc(e.list || e.cat) : (e.sign < 0 ? 'عليّا لـ ' : 'ليّا من ') + esc(e.acc || '—') + (e.settled ? ' · اتسوّى' : '');
     return `<div class="card"><h2>الأهداف</h2><ul class="list">${todo.map(t => `<li><label style="flex:1"><input type="checkbox" data-a="ctodo-chk" data-id="${t.id}" ${t.done ? 'checked' : ''}> ${esc(t.title)}</label><button class="btn sm ghost danger" data-a="ctodo-del" data-id="${t.id}">✕</button></li>`).join('') || '<li class="empty">لا أهداف.</li>'}</ul>
         <form class="row" data-form="q-ctodo" style="margin-top:6px"><input type="text" name="title" placeholder="هدف جديد" required style="flex:1"><button class="btn sm">إضافة</button></form></div>
       <div class="card"><h2>الحسابات</h2><div class="small" style="display:grid;gap:4px"><div>وصل لي: <strong>${money(x.inTotal)}</strong> · اتوزع: <strong>${money(x.outDone)}</strong></div><div>معايا دلوقتي: <strong>${money(x.onHand)}</strong></div>${accLines()}</div>
@@ -2141,6 +2144,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       case 'distribute': if (confirm(t.dataset.m === 'all' ? 'تعلّم كل القائمة اتوزعت، والناقص يتسجل ليك؟' : 'تعلّم البنود اللي اتغطت إنها اتوزعت؟')) { E.distribute(S, today(), t.dataset.m); save(); render(); toast('اتسجل التوزيع'); } break;
       case 'lg-del': if (confirm('حذف الحركة دي؟')) { S.charity.ledger = S.charity.ledger.filter(y => y.id !== t.dataset.id); save(); render(); } break;
       case 'rs-del': if (confirm('حذف العمل ده؟')) { S.work2.research = S.work2.research.filter(y => y.id !== t.dataset.id); save(); render(); } break;
+      case 'pr-settle': { const x = S.charity.ledger.find(y => y.id === t.dataset.id); x.settled = today(); save(); render(); toast(x.sign > 0 ? 'اتسجل إنك خدتهم' : 'اتسجل إنك رجّعتهم'); break; }
       case 'sl-del': if (confirm('حذف البيعة دي؟')) { S.work2.sales = S.work2.sales.filter(y => y.id !== t.dataset.id); save(); render(); } break;
       case 'dv-done': S.work2.devices = S.work2.devices.filter(y => y.id !== t.dataset.id); save(); render(); toast('اتشال، ومكانه الشيت'); break;
       case 'sleep-redo': delete S.sleepLog[today()]; save(); render(); break;
