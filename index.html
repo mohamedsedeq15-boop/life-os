@@ -130,7 +130,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0200';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0201';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -2138,7 +2138,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       save(); render(); toast('أُرسل إلى التقويم');
     } catch (e) { toast('لم يُرسل: ' + e.message); }
   }
-  window.addEventListener('hashchange', render);
+  window.addEventListener('hashchange', () => { if (location.hash === '#sync') { history.replaceState(null, '', location.pathname + location.search + '#today'); render(); syncCalendarLive(); } else render(); });
   window.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
   // ------------------------------------------------------------- shell
