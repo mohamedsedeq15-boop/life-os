@@ -267,7 +267,7 @@ fieldset.rng{border:1px solid var(--line);border-radius:10px;padding:6px 10px 10
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1922';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1940';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1344,16 +1344,24 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
   /** A spoken or typed line, read by its first word: فكرة / مهمة / ضيعت|عملت / سعر / عمل بحثي. */
   const noDur = x => x.replace(/^(ساعتين|ساعه|ساعة|نص ساعة|نص ساعه|ربع ساعة|ربع ساعه|[\d٠-٩]+\s*(دقيقة|دقيقه|دقايق|دقائق|ساعات|ساعة|ساعه))(\s+ونص)?\s+(في\s+|على\s+|علي\s+)?/, '').replace(/\s*(في\s+|لمدة\s+)?(ساعتين|ساعه|ساعة|نص ساعة|نص ساعه|ربع ساعة|ربع ساعه|[\d٠-٩]+\s*(دقيقة|دقيقه|دقايق|دقائق|ساعات|ساعة|ساعه))(\s+ونص)?\s*$/, '').trim() || x;
+  /** A spoken or typed line. Filler words in front («عايز أسجّل…», «لو سمحت») are skipped, then the first word says where it goes. */
+  const FILLER = /^(عايز|عاوز|عايزه|حابب|اريد|محتاج|ممكن|لو|سمحت|من|فضلك|سجل|سجلي|سجللي|اكتب|اكتبلي|ضيف|ضيفلي|اضف|حط|حطلي|يا|مساعد|انا|خلاص|طيب|اه|ايوه|بص|كمان|النهارده|دلوقتي|اسجل|نسجل|عندي|في)$/;
   function parseCommand(text) {
-    const t = String(text || '').trim(), n = norm(t), rest = t.replace(/^\S+\s*/, '').trim();
-    const first = n.split(/\s+/)[0] || '';
-    if (/^فكر/.test(first)) { const c = Object.entries({ worship: /عباد|صلا|قران|ذكر|صيام/, work: /شغل|عمل|عميل|بيع|تسويق/, knowledge: /علم|درس|كتاب|بحث|متن|مذاكر/ }).find(([, re]) => re.test(n)); return { kind: 'idea', text: rest || t, cat: c ? c[0] : 'life' }; }
-    if (/^مهم/.test(first)) return { kind: 'task', text: noDur(rest || t), minutes: spokenMinutes(t) || 30 };
-    if (/^(ضيعت|ضاع|ضيع)/.test(first)) return { kind: 'log', text: noDur(rest || t), minutes: spokenMinutes(t) || 30, category: 'unplanned' };
-    if (/^(عملت|خلصت|اشتغلت|ذاكرت|قريت)/.test(first)) return { kind: 'log', text: noDur(rest || t), minutes: spokenMinutes(t) || 30, category: 'achievement' };
-    if (/^(سعر|تسعير|سعرلي|قدر|كام)/.test(first)) return { kind: 'price', text: rest || t };
-    if (/^عمل بحثي/.test(n)) { const a = (n.match(/(\d+)/) || [])[1]; return { kind: 'research', text: t.replace(/^عمل بحثي\s*/, '').replace(/\s*(ب|بـ)?\s*[\d٠-٩]+\s*(ريال|جنيه|ج)?\s*$/, '').trim(), amount: a ? +a : 0 }; }
-    return { kind: 'unknown', text: t };
+    const t0 = String(text || '').trim(), question = /[؟?]\s*$/.test(t0);
+    const toks = t0.replace(/[،,.:؛!؟?\-–]+/g, ' ').split(/\s+/).filter(Boolean);
+    let k = 0; while (k < toks.length - 1 && k < 4 && FILLER.test(norm(toks[k]))) k++;
+    const t = toks.slice(k).join(' '), n = norm(t), w = n.split(/\s+/), first = w[0] || '', two = w.slice(0, 2).join(' ');
+    const after = c => toks.slice(k + c).join(' ').trim();
+    const rest = after(1), D = m => spokenMinutes(t0) || m;
+    if (/^(عمل|شغل) بحثي/.test(two)) { const a = (n.match(/(\d+)/) || [])[1]; return { kind: 'research', text: after(2).replace(/\s*(ب|بـ)?\s*[\d٠-٩]+\s*(ريال|جنيه|ج)?\s*$/, '').trim(), amount: a ? +a : 0 }; }
+    if (/^وقت (ضايع|ضاع)/.test(two)) return { kind: 'log', text: noDur(after(2) || t), minutes: D(30), category: 'unplanned' };
+    if (/^(فكر|خاطر)/.test(first)) { const c = Object.entries({ worship: /عباد|صلا|قران|ذكر|صيام/, work: /شغل|عمل|عميل|بيع|تسويق/, knowledge: /علم|درس|كتاب|بحث|متن|مذاكر/ }).find(([, re]) => re.test(n)); return { kind: 'idea', text: rest || t, cat: c ? c[0] : 'life' }; }
+    if (/^(مهم|مهام|تاسك|فكرني|ذكرني|لازم)/.test(first)) return { kind: 'task', text: noDur(rest || t), minutes: D(30) };
+    if (/^(ضيعت|ضاع|ضيع|اضعت|ضايع)/.test(first)) return { kind: 'log', text: !rest || (noDur(rest) === rest && spokenMinutes(rest)) ? 'وقت ضايع' : noDur(rest), minutes: D(30), category: 'unplanned' };
+    if (/^(نشاط|عملت|خلصت|اشتغلت|ذاكرت|قريت|قرات|راجعت|حضرت|انجزت|كتبت|حفظت|سمعت|اتعمل)/.test(first)) return { kind: 'log', text: noDur((/^نشاط/.test(first) ? rest : t.replace(/^(عملت|خلصت|اتعمل)\s*/, '')) || t), minutes: D(30), category: 'achievement' };
+    if (/^(سعر|تسعير|قدر|قدرلي)/.test(first)) return { kind: 'price', text: rest || t };
+    if (question || /^(ايه|ماذا|ازاي|كيف|هل|ليه|لماذا|فين|امتي|متي|اين|ما|ماهو|ايش|كام)$/.test(first)) return { kind: 'question', text: t0 };
+    return { kind: 'unknown', text: t0 };
   }
   /** 23 Nov: the worship file as the user described it — Quran review lives inside the prayers, plus sport as thanks for the body. */
   function seedWorship(state) { return false; }
@@ -1685,7 +1693,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
 
   const API = { AREAS, CATS, AREA_TO_CAT, DAY_NAMES, SLOT, hm, toMin, dateStr, parseDate, addDays, weekday, localStamp, relMin, daysBetween, weekStart, range, uid, clone, ar, fmtDur, hash,
-    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, SURAHS, T_PARTS, addStudent, rangeText, rangeAyat, addSession, sessionPos, studentNow, cycleSummary, studentForEvent, addTodayTask, extraDone, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
+    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, noDur, SURAHS, T_PARTS, addStudent, rangeText, rangeAyat, addSession, sessionPos, studentNow, cycleSummary, studentForEvent, addTodayTask, extraDone, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
     eventsOn, eventView, planDay, savePlan, currentPlan, replanDay, diffPlans, capacity, taskInstances, logActivity, addIncident, addEnergy, instanceDone,
     periodRange, analyze, reportText, assistant, assistantContext, pearson };
   g.LifeOS = API;
@@ -2901,7 +2909,6 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   };
 
   /** «المساعد»: speak or type one line; its first word says where it goes. Unknown lines fall back to the questions. */
-  const CMD_KINDS = { idea: 'فكرة', task: 'مهمة النهارده', waste: 'وقت ضايع', done: 'إنجاز', price: 'تقدير سعر', research: 'عمل بحثي' };
   function commandSave(c) {
     const now = nowStamp(), end = E.toMin(now.slice(11, 16));
     if (c.kind === 'idea') { E.addIdea(S, c.text, c.cat, today()); return 'اتحطت في الأفكار (' + E.IDEA_CATS[c.cat] + ')'; }
@@ -2910,36 +2917,47 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     if (c.kind === 'research') { S.work2.research.push({ id: E.uid('rs'), title: c.text, amount: c.amount || 0, received: false, date: today() }); return 'اتضاف للعمل البحثي'; }
     return '';
   }
+  const CMD_ORDER = ['task', 'done', 'waste', 'idea', 'price', 'research', 'question'];
+  const CMD_LABEL = { task: 'مهمة', done: 'عملت', waste: 'ضيّعت', idea: 'فكرة', price: 'سعّر', research: 'عمل بحثي', question: 'سؤال' };
+  const kindOf = c => c.kind === 'log' ? (c.category === 'unplanned' ? 'waste' : 'done') : c.kind;
+  /** The same line read as another kind (the user's tap beats the guess). */
+  function asKind(c, x) {
+    const m = c.minutes || 30;
+    if (x === 'done' || x === 'waste') return Object.assign({}, c, { kind: 'log', category: x === 'waste' ? 'unplanned' : 'achievement', minutes: m });
+    return Object.assign({}, c, { kind: x, cat: c.cat || 'life', minutes: m, category: undefined });
+  }
   function assistantDialog() {
-    const Qs = ['ماذا أفعل الآن؟', 'أين يذهب وقتي؟', 'ما الذي يمكن تأجيله هذا الأسبوع؟'];
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    modal(`<h2>المساعد</h2><div class="small muted">ابدأ بكلمة: <b>فكرة</b> · <b>مهمة</b> · <b>ضيّعت</b> · <b>عملت</b> · <b>سعّر</b> · <b>عمل بحثي</b></div>
-      <form id="ask" class="row" style="margin-top:8px"><button type="button" class="btn mic" id="mic" aria-label="اتكلم">🎤</button><input type="text" name="q" style="flex:1" placeholder="مثلاً: فكرة درس عن الصبر"><button class="btn primary">تمام</button></form>
-      <div id="cmd" style="margin-top:8px"></div><div class="chat" id="chat"></div><div class="chips">${Qs.map(q => `<button data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`, m => {
+    let mode = '';
+    modal(`<h2>المساعد</h2>
+      <div class="small muted">اختار الأول عايز تسجّل إيه، أو سيبها «تلقائي» وابدأ كلامك بالكلمة.</div>
+      <div class="chips" id="modes" style="margin-top:6px"><button type="button" data-m="" class="on">تلقائي</button>${CMD_ORDER.map(x => `<button type="button" data-m="${x}">${CMD_LABEL[x]}</button>`).join('')}</div>
+      <form id="ask" class="row" style="margin-top:8px"><button type="button" class="btn mic" id="mic" aria-label="اتكلم">🎤</button><input type="text" name="q" style="flex:1" placeholder="مثلاً: مهمة اتصل بالعميل نص ساعة"><button class="btn primary">تمام</button></form>
+      <div id="cmd" style="margin-top:8px"></div><div class="chat" id="chat"></div>`, m => {
       const chat = $('#chat', m), box = $('#cmd', m), inp = m.querySelector('[name=q]');
-      const ask = q => { chat.insertAdjacentHTML('beforeend', `<div class="q">${esc(q)}</div><div class="a">${esc(E.assistant(S, q, nowStamp()))}</div>`); chat.scrollTop = chat.scrollHeight; };
+      const ask = q => { box.innerHTML = ''; chat.insertAdjacentHTML('beforeend', `<div class="q">${esc(q)}</div><div class="a">${esc(E.assistant(S, q, nowStamp()))}</div>`); chat.scrollTop = chat.scrollHeight; };
       function preview(c) {
-        if (c.kind === 'unknown') { box.innerHTML = ''; ask(c.text); return; }
-        if (c.kind === 'price') { box.innerHTML = `<div class="cmdp">${priceHTML(c.text)}</div>`; to12(box); return; }
-        const k = c.kind === 'log' ? (c.category === 'unplanned' ? 'waste' : 'done') : c.kind;
-        box.innerHTML = `<div class="cmdp"><div class="small muted">هيتحط في</div><div class="chips">${['idea', 'task', 'waste', 'done', 'research'].map(x => `<button type="button" data-k="${x}" class="${x === k ? 'on' : ''}">${CMD_KINDS[x]}</button>`).join('')}</div>
-          ${c.kind === 'idea' ? `<div class="chips">${Object.entries(E.IDEA_CATS).map(([x, l]) => `<button type="button" data-c="${x}" class="${x === c.cat ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
-          <div style="margin:6px 0"><b>${esc(c.text)}</b>${c.minutes && c.kind !== 'idea' ? ` <span class="small muted">· ${D(c.minutes)}</span>` : ''}${c.kind === 'research' && c.amount ? ` <span class="small muted">· ${money(c.amount)}</span>` : ''}</div>
-          <button type="button" class="btn primary" id="cmd-ok">احفظ</button></div>`;
-        box.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => { const x = b.dataset.k;
-          preview(Object.assign({}, c, x === 'waste' || x === 'done' ? { kind: 'log', category: x === 'waste' ? 'unplanned' : 'achievement', minutes: c.minutes || 30 } : { kind: x, cat: c.cat || 'life', minutes: c.minutes || 30 })); }));
+        const k = c.kind === 'unknown' ? '' : kindOf(c);
+        if (k === 'question') return ask(c.text);
+        if (k === 'price') { box.innerHTML = `<div class="cmdp">${priceHTML(c.text)}</div>`; to12(box); return; }
+        box.innerHTML = `<div class="cmdp"><div class="small muted">${k ? 'هيتحط في (دوس على غيرها لو غلط):' : 'ده إيه؟ اختار:'}</div><div class="chips">${CMD_ORDER.map(x => `<button type="button" data-k="${x}" class="${x === k ? 'on' : ''}">${CMD_LABEL[x]}</button>`).join('')}</div>
+          ${k === 'idea' ? `<div class="chips" style="margin-top:4px">${Object.entries(E.IDEA_CATS).map(([x, l]) => `<button type="button" data-c="${x}" class="${x === c.cat ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
+          <div style="margin:6px 0"><b>${esc(c.text)}</b>${c.minutes && (k === 'task' || k === 'done' || k === 'waste') ? ` <span class="small muted">· ${D(c.minutes)}</span>` : ''}${k === 'research' && c.amount ? ` <span class="small muted">· ${money(c.amount)}</span>` : ''}</div>
+          ${k ? '<button type="button" class="btn primary" id="cmd-ok">احفظ</button>' : ''}</div>`;
+        box.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => preview(asKind(c, b.dataset.k))));
         box.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => preview(Object.assign({}, c, { cat: b.dataset.c }))));
-        $('#cmd-ok', box).addEventListener('click', () => { const msg = commandSave(c); save(); closeModal(); render(); toast(msg); });
+        const ok = $('#cmd-ok', box); if (ok) ok.addEventListener('click', () => { const msg = commandSave(c); save(); closeModal(); render(); toast(msg); });
       }
-      const run = t => { t = t.trim(); if (t) preview(E.parseCommand(t)); };
-      m.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => ask(b.dataset.q)));
+      const run = t => { t = t.trim(); if (!t) return; let c = E.parseCommand(t); if (mode && kindOf(c) !== mode) c = asKind(c.kind === 'unknown' || c.kind === 'question' ? Object.assign(c, { minutes: E.spokenMinutes(t) || 30, text: ['task', 'done', 'waste'].includes(mode) ? E.noDur(c.text) : c.text }) : c, mode); preview(c); };
+      m.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => { mode = b.dataset.m; m.querySelectorAll('[data-m]').forEach(x => x.classList.toggle('on', x === b)); inp.placeholder = mode ? `قول ${CMD_LABEL[mode] === 'سؤال' ? 'سؤالك' : 'اللي عايز تسجّله'} من غير الكلمة` : 'مثلاً: مهمة اتصل بالعميل نص ساعة'; inp.focus(); }));
       $('#ask', m).addEventListener('submit', e => { e.preventDefault(); run(inp.value); });
       const mic = $('#mic', m);
       const kbHint = why => { inp.focus(); box.innerHTML = `<div class="cmdp small">${why} استخدم مايك الكيبورد بدلها: دوس في الخانة، وبعدين علامة 🎤 اللي في الكيبورد نفسه، واتكلم، وبعدين «تمام».</div>`; };
       if (mic) mic.addEventListener('click', () => {
         if (!SR) return kbHint('المتصفح ده مفيهوش التعرف على الصوت.');
         let r; try { r = new SR(); } catch (e) { return kbHint('المايك مش متاح هنا.'); }
-        r.lang = 'ar-EG'; r.interimResults = true; mic.classList.add('on'); r.onstart = () => toast('اتكلم دلوقتي…');
+        r.lang = 'ar-EG'; r.interimResults = true; r.continuous = false; mic.classList.add('on'); r.onstart = () => toast('اتكلم دلوقتي…');
+        // the text only fills the box; nothing is saved until you see where it goes and press «احفظ»
         r.onresult = ev => { inp.value = Array.from(ev.results).map(x => x[0].transcript).join(' '); if (ev.results[ev.results.length - 1].isFinal) run(inp.value); };
         r.onerror = ev => { mic.classList.remove('on'); ev.error === 'no-speech' ? toast('مسمعتش حاجة، جرّب تاني') : kbHint(ev.error === 'not-allowed' || ev.error === 'service-not-allowed' ? 'المايك مش مسموح له (من إعدادات المتصفح، أو التطبيق المتثبت على الشاشة مش بيسمح بيه).' : `المايك وقف (${ev.error}).`); };
         r.onend = () => mic.classList.remove('on'); try { r.start(); } catch (e) { mic.classList.remove('on'); kbHint('المايك مش متاح هنا.'); }
