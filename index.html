@@ -236,6 +236,12 @@ ol.price{margin:0;padding-inline-start:20px;display:grid;gap:6px;font-size:14px}
   .calw{grid-template-columns:1fr} .calw .cd{min-height:0} .calm .cm{min-height:54px} .calm .cm i{display:none} }
 .calm .cnt{display:none} @media (max-width:760px){ .calm .cnt{display:inline-block;align-self:flex-start;font-size:10.5px;background:var(--accent);color:#fff;border-radius:99px;padding:0 6px} }
 .tag.linkish{cursor:pointer;font-family:inherit}
+.wirds{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.wd{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:start;border:1px solid var(--line2);background:var(--panel);border-radius:12px;padding:8px 10px;cursor:pointer;font:inherit;color:inherit}
+.wd b{font-size:14px;font-weight:600} .wd span{font-size:12px;color:var(--muted)}
+.wd.on{background:color-mix(in srgb,var(--sc,var(--accent)) 12%,var(--panel));border-color:var(--sc,var(--accent))} .wd.on b{color:var(--sc,var(--accent))}
+@media (max-width:760px){ .wirds{grid-template-columns:repeat(2,minmax(0,1fr))} }
+.sym{font-family:"Noto Naskh Arabic","Geeza Pro","Segoe UI",serif;font-weight:400}
 
 </style>
 </head>
@@ -258,7 +264,7 @@ ol.price{margin:0;padding-inline-start:20px;display:grid;gap:6px;font-size:14px}
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1752';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1804';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -2177,7 +2183,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const cur = plan.blocks.find(b => b.startMin <= n && b.endMin > n && !b.frozen);
     const comp = completion(plan);
     const log = (S.awradLog || {})[d] || {};
-    const isQ = b => S.qplan && S.qplan.prog && (b.type === 'quran' || b.taskId === 'goal:g-q-asr'); // shown inside the Quran element instead
+    const isQ = b => (S.qplan && S.qplan.prog && (b.type === 'quran' || b.taskId === 'goal:g-q-asr')) || b.taskId === 'goal:g-sport'; // shown inside the Quran element / the awrad instead
     const items = plan.blocks.filter(b => b.type !== 'prayer' && b.type !== 'routine' && !isQ(b));
     const energy = (S.energy.filter(e => e.date === d).slice(-1)[0] || {}).level;
     return `${!SNAP && !Object.keys(S.events || {}).length ? `<div class="card" style="margin-bottom:14px;border-color:var(--accent)"><h2>أهلًا، خطوة واحدة</h2><div class="small">النسخة المنشورة لا تحمل بياناتك الشخصية. اختر ملف النسخة الاحتياطية (من فولدر Life OS في الدرايف) مرة واحدة، وبعدها كل شيء يبقى على هذا الجهاز.</div><label class="btn primary" style="margin-top:8px">استعادة نسختي<input type="file" accept=".json,application/json" data-a="restore" hidden></label></div>` : ''}
@@ -2185,7 +2191,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       <div class="card"><h2>الآن</h2>${cur ? `<div style="font-weight:600">${esc(cur.title)}</div><div class="muted small"><bdi dir="ltr">${cur.start}–${cur.end}</bdi></div>` : '<div class="muted">وقت متاح</div>'}<div class="muted small" style="margin-top:4px">غير محجوز حتى النوم: ${D(freeAfterNow(plan))}</div></div>
       <div class="card"><h2>إنجاز اليوم</h2><div class="row"><div class="ring" style="--p:${comp.pct}"><span>${E.ar(comp.pct)}٪</span></div><div class="small muted">${D(comp.done)} من ${D(comp.total)}<br>اضغط «تم» أو التقييم في الجدول، ولا شيء غيره.</div></div></div>
     </div>
-      <div class="card" data-s="worship" style="margin-top:14px"><h2>الأوراد اليومية</h2><div class="chips">${(S.awrad || []).filter(w => !w.days || w.days.includes(E.weekday(d))).map(w => `<button title="${esc(w.note || '')}" data-a="wird" data-id="${w.id}" class="${log[w.id] ? 'on' : ''}">${log[w.id] ? '✓ ' : ''}${esc(w.title)}</button>`).join('')}</div></div>
+      <div class="card" data-s="worship" style="margin-top:14px"><h2>الأوراد والعادات</h2><div class="wirds">${(S.awrad || []).filter(w => !w.days || w.days.includes(E.weekday(d))).map(w => [w, wirdWhen(w, plan)]).sort((a, b) => a[1].min - b[1].min).map(([w, x]) => `<button title="${esc(w.note || '')}" data-a="wird" data-id="${w.id}" class="wd ${log[w.id] ? 'on' : ''}"><b>${log[w.id] ? '✓ ' : ''}${esc(w.title).replace('ﷺ', '<span class="sym">ﷺ</span>')}</b><span>${esc(x.txt)}</span></button>`).join('')}</div></div>
     <div class="card" style="margin-top:14px"><h2>جدول اليوم<span class="sp"></span><button class="btn sm ghost" data-a="log">تسجيل نشاط</button><button class="btn sm" data-a="incident">طارئ أو تأخير</button><button class="btn sm primary" data-a="replan">إعادة تخطيط اليوم</button></h2>
       <div class="tl">${[...items.map(b => [b.startMin, todayRow(b, d, n)]), ...E.extraDone(S, d).map(l => [E.toMin(l.start || '00:00'), extraRow(l)])].sort((x, y) => x[0] - y[0]).map(x => x[1]).join('')}</div>
       ${plan.postponed.length ? `<div class="small muted" style="margin-top:8px">لم يتسع له اليوم: ${plan.postponed.map(p => esc(p.title) + ' (' + esc(p.reason.split(' — ')[0]) + ')').join('، ')}</div>` : ''}
@@ -2205,6 +2211,17 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     if (es.cancel) return es.cancel === 'lazy' ? `<button class="tag bad linkish" ${undo}>اتلغى بدون عذر</button>` : `<button class="tag linkish" ${undo}>اتلغى بعذر</button>`;
     if (es.asking) return `<span class="act row"><span class="small muted">اتلغى:</span><button class="btn sm" data-a="ev-st" data-k="${K}" data-v="excused">بعذر</button><button class="btn sm ghost danger" data-a="ev-st" data-k="${K}" data-v="lazy">بدون عذر</button><button class="btn sm ghost" ${undo}>↩</button></span>`;
     return `<span class="act row">${doneBtn}<button class="btn sm ghost" data-a="ev-st" data-k="${K}" data-v="ask">اتلغى</button></span>`;
+  }
+  /** Each wird has its own time, taken from today's plan (23 Nov: «الأوراد ما تبقاش مفتوحة، ليها ساعة محددة»). */
+  function wirdWhen(w, plan) {
+    const B = plan.blocks, pr = n => B.find(b => b.type === 'prayer' && b.title.includes(n)), r = (txt, min) => ({ txt, min: min == null ? 9999 : min });
+    if (w.id === 'w-adhkar-am') { const l = B.find(b => b.type === 'event' && /درس التفسير اليومي/.test(b.title)), f = pr('الفجر'), m = l ? l.endMin : f ? f.endMin : 360; return r(`${l ? 'بعد درس الفجر' : 'بعد الفجر'} ${H(m)}`, m); }
+    if (w.id === 'w-adhkar-pm') { const m = pr('المغرب'); return m ? r(`قبل المغرب ${H(m.startMin - 15)}`, m.startMin - 15) : r('قبل المغرب'); }
+    if (w.id === 'w-qiyam') { const m = E.toMin(S.settings.sleepTime) - 15; return r(`قبل النوم ${H(m)}، ركعتين`, m); }
+    if (w.id === 'w-rawatib') { const m = pr('الظهر'); return r('مع الصلوات: قبل الظهر وبعده، وبعد المغرب والعشاء', m ? m.startMin - 1 : null); }
+    if (w.id === 'w-salawat') { const m = pr('العصر'); return m ? r(`بعد العصر ${H(m.endMin)}`, m.endMin) : r('بعد العصر'); }
+    if (w.id === 'w-sport') { const b = B.find(x => x.taskId === 'goal:g-sport'); return b ? r(`${b.start}–${b.end}`, b.startMin) : r('النهارده مفيش وقت فاضي ليها'); }
+    return r(w.time || w.note || '', w.time ? E.toMin(w.time) : null);
   }
   function todayRow(b, d, n) {
     const st = blockState(b), past = b.endMin <= n, now = b.startMin <= n && b.endMin > n;
@@ -2871,7 +2888,9 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       case 'st-del': { const p = (S.sciProjects || []).find(x => x.id === t.dataset.p), st = p && p.steps.find(x => x.id === t.dataset.s); if (st && confirm('حذف الخطوة «' + st.title + '»؟')) { p.steps = p.steps.filter(x => x !== st); save(); render(); } break; }
       case 'st-today': { const p = (S.sciProjects || []).find(x => x.id === t.dataset.p), st = p && p.steps.find(x => x.id === t.dataset.s); if (st) { st.when = 'day'; save(); render(); } break; }
       case 'pj-del': { const p = (S.sciProjects || []).find(x => x.id === t.dataset.p); if (p && confirm('حذف المشروع «' + p.title + '»؟')) { S.sciProjects = S.sciProjects.filter(x => x !== p); const g = S.bigGoals.find(x => x.id === p.goalId); if (g) { S.bigGoals = S.bigGoals.filter(x => x !== g); E.syncGoalTasks(S); } save(); render(); } break; }
-      case 'wird': { const d = today(); S.awradLog = S.awradLog || {}; const l = S.awradLog[d] = S.awradLog[d] || {}; l[t.dataset.id] = !l[t.dataset.id]; save(); render(); break; }
+      case 'wird': { const d = today(); S.awradLog = S.awradLog || {}; const l = S.awradLog[d] = S.awradLog[d] || {}; l[t.dataset.id] = !l[t.dataset.id];
+        if (t.dataset.id === 'w-sport') { const b = (E.currentPlan(S, d) || { blocks: [] }).blocks.find(x => x.taskId === 'goal:g-sport'); if (b && b.instance) { const st = S.taskStatus[b.instance] = S.taskStatus[b.instance] || {}; st.done = !!l['w-sport']; if (st.done) st.minutes = b.endMin - b.startMin; else delete st.minutes; } }
+        save(); render(); break; }
       case 'missed': { const st = S.taskStatus[t.dataset.i] || (S.taskStatus[t.dataset.i] = { minutes: 0 }); st.missed = true; save(); render(); break; }
       case 'go-week2': location.hash = 'week2?d=' + t.dataset.d; break;
       case 'print': window.print(); break;
