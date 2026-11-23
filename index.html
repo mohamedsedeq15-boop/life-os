@@ -108,6 +108,24 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 .print-only{display:none}
 @media (max-width:760px){ .wk{grid-template-columns:1fr} .wk-day{min-height:0} }
 @media print{ @page{size:A4 landscape;margin:8mm} .print-only{display:block} .main>*:not(#view){display:none} #view>.card:not(.printable){display:none} .wk-day{min-height:120mm} .wk-it{font-size:10px} a{color:inherit;text-decoration:none} }
+/* system map (settings) */
+.smap{display:grid;gap:10px;position:relative}
+.smap .tier{display:grid;gap:8px}
+.smap .lbl{font-size:11.5px;letter-spacing:.02em;color:var(--muted);font-weight:600}
+.smap .row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.smap .row2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.smap .nd{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;position:relative;overflow:hidden}
+.smap .nd::before{content:"";position:absolute;inset-block-start:0;inset-inline:0;height:3px;background:var(--c,var(--accent))}
+.smap .nd b{display:block;font-size:14px} .smap .nd span{display:block;font-size:12px;color:var(--muted);line-height:1.5}
+.smap .core{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 16%,var(--panel)),var(--panel));border:1.5px solid var(--accent);border-radius:16px;padding:14px}
+.smap .core>b{font-size:17px;display:flex;align-items:center;gap:8px} .smap .core>b::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 25%,transparent)}
+.smap .core .row2{margin-top:8px} .smap .core .nd{background:var(--panel)}
+.smap .arw{display:flex;justify-content:center;color:var(--muted);font-size:12px;gap:6px;align-items:center}
+.smap .arw::before,.smap .arw::after{content:"";height:1px;flex:1;max-width:80px;background:var(--line)}
+.smap .chips2{display:flex;flex-wrap:wrap;gap:6px} .smap .chips2 i{font-style:normal;font-size:12.5px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:var(--panel2);border-inline-start:4px solid var(--c)}
+.smap .casc{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px} .smap .casc i{font-style:normal;padding:3px 10px;border-radius:8px;background:var(--panel2);border:1px solid var(--line)} .smap .casc em{font-style:normal;color:var(--muted)}
+.smap ol{list-style:arabic-indic;margin:0;padding-inline-start:18px;font-size:13px;display:grid;gap:3px}
+@media (max-width:560px){ .smap .row3{grid-template-columns:1fr} }
 
 </style>
 </head>
@@ -130,7 +148,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0424';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0430';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -953,14 +971,29 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const runs = []; for (const p of pages) { const r = runs[runs.length - 1]; if (r && r[1] === p - 1) r[1] = p; else runs.push([p, p]); }
     return runs.map(([a, b]) => `ص ${ar(a)}${b > a ? '–' + ar(b) : ''} (${surahAt(a)}${surahAt(b) !== surahAt(a) ? ' ← ' + surahAt(b) : ''})`).join(' · ');
   };
+  /** The 240 quarters (أرباع الأحزاب) of the Madani mushaf: [surah no, first ayah, page]. The smallest unit of the plan is a quarter. */
+  const Q_QUARTERS = [[1,1,1],[2,26,5],[2,44,7],[2,60,9],[2,75,11],[2,92,14],[2,106,17],[2,124,19],[2,142,22],[2,158,24],[2,177,27],[2,189,29],[2,203,32],[2,219,34],[2,233,37],[2,243,39],[2,253,42],[2,263,44],[2,272,46],[2,283,49],[3,15,51],[3,33,54],[3,52,56],[3,75,59],[3,93,62],[3,113,64],[3,133,67],[3,153,69],[3,171,72],[3,186,74],[4,1,77],[4,12,79],[4,24,82],[4,36,84],[4,58,87],[4,74,89],[4,88,92],[4,100,94],[4,114,97],[4,135,100],[4,148,102],[4,163,104],[5,1,106],[5,12,109],[5,27,112],[5,41,114],[5,51,117],[5,67,119],[5,82,121],[5,97,124],[5,109,126],[6,13,129],[6,36,132],[6,59,134],[6,74,137],[6,95,140],[6,111,142],[6,127,144],[6,141,146],[6,151,148],[7,1,151],[7,31,154],[7,47,156],[7,65,158],[7,88,162],[7,117,164],[7,142,167],[7,156,170],[7,171,173],[7,189,175],[8,1,177],[8,22,179],[8,41,182],[8,61,184],[9,1,187],[9,19,189],[9,34,192],[9,46,194],[9,60,196],[9,75,199],[9,93,201],[9,111,204],[9,122,206],[10,11,209],[10,26,212],[10,53,214],[10,71,217],[10,90,219],[11,6,222],[11,24,224],[11,41,226],[11,61,228],[11,84,231],[11,108,233],[12,7,236],[12,30,238],[12,53,242],[12,77,244],[12,101,247],[13,5,249],[13,19,252],[13,35,254],[14,10,256],[14,28,259],[15,1,262],[15,50,264],[16,1,267],[16,30,270],[16,51,272],[16,75,275],[16,90,277],[16,111,280],[17,1,282],[17,23,284],[17,50,287],[17,70,289],[17,99,292],[18,17,295],[18,32,297],[18,51,299],[18,75,302],[18,99,304],[19,22,306],[19,59,309],[20,1,312],[20,55,315],[20,83,317],[20,111,319],[21,1,322],[21,29,324],[21,51,326],[21,83,329],[22,1,332],[22,19,334],[22,38,336],[22,60,339],[23,1,342],[23,36,344],[23,75,347],[24,1,350],[24,21,352],[24,35,354],[24,53,356],[25,1,359],[25,21,362],[25,53,364],[26,1,367],[26,52,369],[26,111,371],[26,181,374],[27,1,377],[27,27,379],[27,56,382],[27,82,384],[28,12,386],[28,29,389],[28,51,392],[28,76,394],[29,1,396],[29,26,399],[29,46,402],[30,1,404],[30,31,407],[30,54,410],[31,22,413],[32,11,415],[33,1,418],[33,18,420],[33,31,422],[33,51,425],[33,60,426],[34,10,429],[34,24,431],[34,46,433],[35,15,436],[35,41,439],[36,28,442],[36,60,444],[37,22,446],[37,83,449],[37,145,451],[38,21,454],[38,52,456],[39,8,459],[39,32,462],[39,53,464],[40,1,467],[40,21,469],[40,41,472],[40,66,474],[41,9,477],[41,25,479],[41,47,482],[42,13,484],[42,27,486],[42,51,488],[43,24,491],[43,57,493],[44,17,496],[45,12,499],[46,1,502],[46,21,505],[47,10,507],[47,33,510],[48,18,513],[49,1,515],[49,14,517],[50,27,519],[51,31,522],[52,24,524],[53,26,526],[54,9,529],[55,1,531],[56,1,534],[56,75,536],[57,16,539],[58,1,542],[58,14,544],[59,11,547],[60,7,550],[62,1,553],[63,4,554],[65,1,558],[66,1,560],[67,1,562],[68,1,564],[69,1,566],[70,19,569],[72,1,572],[73,20,575],[75,1,577],[76,19,579],[78,1,582],[80,1,585],[82,1,587],[84,1,589],[87,1,591],[90,1,594],[94,1,596],[100,9,599]];
+  const qSno = q => q === 1 ? 2 : Q_QUARTERS[q - 1][0]; // the first quarter (الفاتحة + البقرة ١–٢٥) counts as البقرة's first
+  const qPage = q => Q_QUARTERS[q - 1][2], qSurah = q => Q_SURAH[qSno(q) - 1][1];
+  const qIndexInSurah = q => { let n = 1; for (let i = q - 1; i >= 1 && qSno(i) === qSno(q); i--) n++; return n; };
+  const quartersText = qs => { // [3,4,5] → «البقرة: الربع ٣–٥» ; quarters are labelled by the surah they start in
+    const runs = []; for (const q of qs) { const r = runs[runs.length - 1], s = qSurah(q), i = qIndexInSurah(q); if (r && r.last === q - 1 && r.s === s) { r.b = i; r.last = q; } else runs.push({ s, a: i, b: i, last: q }); }
+    return runs.map(r => `${r.a === 1 && r.s === 'البقرة' ? 'الفاتحة و' : ''}${r.s}: الربع ${ar(r.a)}${r.b > r.a ? '–' + ar(r.b) : ''}`).join(' · ');
+  };
   const Q_RATE = { good: 'جيد', mid: 'متوسط', weak: 'ضعيف' };
   function seedQuranPlan(state) {
     if (state.qplan) return false;
     state.qplan = { start: '2026-11-23', cycle: 10, aEnd: 215, ismailPos: 215, hizbPages: 10, ramadan: '2027-02-08', log: {}, ismail: [] };
     return true;
   }
+  /** 23 Nov: the user counts in quarters, not pages. Sections are the same, by the page each quarter starts on. */
+  function qUnits(state) {
+    const q = state.qplan;
+    if (q.ismailQ == null) { let last = 0; for (let i = 1; i <= 240; i++) if (qPage(i) <= q.ismailPos) last = i; q.ismailQ = last; q.hizbQ = 4; }
+    return q;
+  }
   function qSections(state) {
-    const q = state.qplan, A = PG(1, q.aEnd), B = Q_B, C = PG(q.aEnd + 1, 439).filter(p => !B.includes(p));
+    const q = qUnits(state), all = PG(1, 240), A = all.filter(i => qPage(i) <= q.aEnd), B = all.filter(i => Q_B.includes(qPage(i))), C = all.filter(i => qPage(i) > q.aEnd && qPage(i) < 440 && !B.includes(i));
     return { A, B, C };
   }
   const daysBetweenD = (a, b) => Math.round((parseDate(b) - parseDate(a)) / 864e5);
@@ -970,25 +1003,25 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const { A, B, C } = qSections(state), n = q.cycle, k = ((daysBetweenD(q.start, day) % n) + n) % n;
     const sl = (arr, i) => arr.slice(Math.floor(i * arr.length / n), Math.floor((i + 1) * arr.length / n));
     const a = sl(A, k), b = sl(B, k), wd = weekday(day);
-    const prayer = b.slice(0, 12), rest = b.slice(12);
-    const split = [['قيام الليل', 2], ['قبل الظهر', 2], ['بعد الظهر', 4], ['بعد المغرب', 2], ['بعد العشاء', 2]];
-    let i = 0; const inPrayer = split.map(([w, c]) => { const pg = prayer.slice(i, i + c); i += c; return { when: w, pages: pg, text: pg.length ? pagesText(pg) : '' }; }).filter(x => x.pages.length);
-    const recitedNew = C.filter(p => p <= q.ismailPos);
-    const nextHizb = C.filter(p => p > q.ismailPos).slice(0, q.hizbPages);
+    const split = [['قيام الليل', 1], ['قبل الظهر', 1], ['بعد الظهر', 1], ['بعد المغرب', 1], ['بعد العشاء', 1]], nPr = split.reduce((t, x) => t + x[1], 0);
+    const prayer = b.slice(0, nPr), rest = b.slice(nPr);
+    let i = 0; const inPrayer = split.map(([w, c]) => { const pg = prayer.slice(i, i + c); i += c; return { when: w, pages: pg, text: pg.length ? quartersText(pg) : '' }; }).filter(x => x.pages.length);
+    const recitedNew = C.filter(p => p <= q.ismailQ);
+    const nextHizb = C.filter(p => p > q.ismailQ).slice(0, q.hizbQ);
     const log = q.log || {};
     const weakDue = []; for (let back = 3; back <= 9; back++) { const d = addDays(day, -back), e = log[d]; if (!e) continue;
-      for (const part of ['a', 'b', 'n']) if (e[part] === 'weak' && !Object.keys(log).some(x => x > d && x <= day && log[x]['re_' + d + part])) weakDue.push({ from: d, part, pages: e[part + 'Pages'] || [], text: pagesText(e[part + 'Pages'] || []) }); }
+      for (const part of ['a', 'b', 'n']) if (e[part] === 'weak' && !Object.keys(log).some(x => x > d && x <= day && log[x]['re_' + d + part])) weakDue.push({ from: d, part, pages: e[part + 'Q'] || [], text: quartersText(e[part + 'Q'] || []) }); }
     const missed = []; for (let back = 1; back < n; back++) { const d = addDays(day, -back); if (d < q.start) break; const e = log[d] || {};
-      if (!e.a || !e.b) { const kk = ((daysBetweenD(q.start, d) % n) + n) % n; missed.push({ day: d, a: !e.a ? pagesText(sl(A, kk)) : null, b: !e.b ? pagesText(sl(B, kk)) : null }); } }
-    const left = C.filter(p => p > q.ismailPos).length, weeksLeft = Math.max(0, daysBetweenD(day, q.ramadan) / 7);
-    return { k: k + 1, n, a, b, aText: pagesText(a), bText: pagesText(b), inPrayer, restText: rest.length ? pagesText(rest) : '',
-      ismailToday: wd === 5 || wd === 0, nextHizb, nextHizbText: nextHizb.length ? pagesText(nextHizb) : 'اكتمل الجديد إلى يس',
-      recitedNewCount: recitedNew.length, newLeft: left, finishWeeks: left / (2 * q.hizbPages), weeksLeft, weakDue, missed: missed.slice(0, 6),
+      if (!e.a || !e.b) { const kk = ((daysBetweenD(q.start, d) % n) + n) % n; missed.push({ day: d, a: !e.a ? quartersText(sl(A, kk)) : null, b: !e.b ? quartersText(sl(B, kk)) : null }); } }
+    const left = C.filter(p => p > q.ismailQ).length, weeksLeft = Math.max(0, daysBetweenD(day, q.ramadan) / 7);
+    return { k: k + 1, n, a, b, aText: quartersText(a), bText: quartersText(b), inPrayer, restText: rest.length ? quartersText(rest) : '',
+      ismailToday: wd === 5 || wd === 0, nextHizb, nextHizbText: nextHizb.length ? quartersText(nextHizb) : 'اكتمل الجديد إلى يس',
+      recitedNewCount: recitedNew.length, newLeft: left, finishWeeks: left / (2 * q.hizbQ), Cunits: C, weeksLeft, weakDue, missed: missed.slice(0, 6),
       entry: log[day] || {}, totals: { A: A.length, B: B.length, C: C.length } };
   }
   function rateQuran(state, day, part, rating) {
     const q = state.qplan, e = (q.log[day] = q.log[day] || {}), qd = quranDay(state, day);
-    e[part] = rating; e[part + 'Pages'] = part === 'a' ? qd.a : part === 'b' ? qd.b : qd.nextHizb;
+    e[part] = rating; e[part + 'Q'] = part === 'a' ? qd.a : part === 'b' ? qd.b : qd.nextHizb;
     if (part === 'a' || part === 'b') { if (e.a && e.b) state.taskStatus['quran@' + day] = Object.assign({}, state.taskStatus['quran@' + day], { done: true }); }
   }
   function rateQuranDay(state, day, rating) { rateQuran(state, day, 'a', rating); rateQuran(state, day, 'b', rating); }
@@ -997,8 +1030,8 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const q = state.qplan, today = (q.log[day] || {});
     if (today.n) { const last = q.ismail[q.ismail.length - 1]; if (last && last.date === day) last.rating = rating; today.n = rating; return; } // one session a day
     const qd = quranDay(state, day); if (!qd.nextHizb.length) return;
-    q.ismail.push({ date: day, pages: qd.nextHizb, rating }); q.ismailPos = qd.nextHizb[qd.nextHizb.length - 1];
-    const e = (q.log[day] = q.log[day] || {}); e.n = rating; e.nPages = qd.nextHizb;
+    q.ismail.push({ date: day, quarters: qd.nextHizb, rating }); q.ismailQ = qd.nextHizb[qd.nextHizb.length - 1];
+    const e = (q.log[day] = q.log[day] || {}); e.n = rating; e.nQ = qd.nextHizb;
   }
   /** 23 Nov: the worship file as the user described it — Quran review lives inside the prayers, plus sport as thanks for the body. */
   function seedWorship(state) { return false; }
@@ -1242,7 +1275,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
 
   const API = { AREAS, CATS, AREA_TO_CAT, DAY_NAMES, SLOT, hm, toMin, dateStr, parseDate, addDays, weekday, localStamp, relMin, daysBetween, weekStart, range, uid, clone, ar, fmtDur, hash,
-    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, seedSleep, logSleep, sleepStats, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
+    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, seedSleep, logSleep, sleepStats, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
     eventsOn, eventView, planDay, savePlan, currentPlan, replanDay, diffPlans, capacity, taskInstances, logActivity, addIncident, addEnergy, instanceDone,
     periodRange, analyze, reportText, assistant, assistantContext, pearson };
   g.LifeOS = API;
@@ -1558,15 +1591,15 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const onTrack = q.finishWeeks <= q.weeksLeft - 1;
     return `<div class="grid g2">${quranCard(d, true)}
       <div class="card"><h2>الطريق إلى رمضان</h2><ul class="list">
-        <li><span style="flex:1">القسم ١ (المسمَّع للشيخ)</span><strong>${E.ar(q.totals.A)} صفحة</strong></li>
-        <li><span style="flex:1">القسم ٢ (القوي: الإسراء–طه، السجدة، يس–الناس)</span><strong>${E.ar(q.totals.B)} صفحة</strong></li>
-        <li><span style="flex:1">القسم ٣ (الجديد إلى يس)</span><strong>سُمّع ${E.ar(q.recitedNewCount)} · باقٍ ${E.ar(q.newLeft)}</strong></li>
-        <li><span style="flex:1">بحزب كل جلسة (الجمعة والأحد) ينتهي الجديد بعد</span><strong style="color:var(${onTrack ? '--ok' : '--bad'})">${E.ar(Math.ceil(q.finishWeeks))} أسابيع من ${E.ar(Math.floor(q.weeksLeft))} متبقية</strong></li>
+        <li><span style="flex:1">القسم ١ (المسمَّع للشيخ)</span><strong>${E.ar(q.totals.A)} ربع</strong></li>
+        <li><span style="flex:1">القسم ٢ (القوي: الإسراء–طه، السجدة، يس–الناس)</span><strong>${E.ar(q.totals.B)} ربع</strong></li>
+        <li><span style="flex:1">القسم ٣ (الجديد إلى يس)</span><strong>سُمّع ${E.ar(q.recitedNewCount)} ربع · باقٍ ${E.ar(q.newLeft)}</strong></li>
+        <li><span style="flex:1">بحزب (٤ أرباع) كل جلسة (الجمعة والأحد) ينتهي الجديد بعد</span><strong style="color:var(${onTrack ? '--ok' : '--bad'})">${E.ar(Math.ceil(q.finishWeeks))} أسابيع من ${E.ar(Math.floor(q.weeksLeft))} متبقية</strong></li>
       </ul>
-      <form class="row small" data-form="qpos" style="margin-top:8px"><label>آخر صفحة سمّعتها للشيخ <input type="number" name="pos" min="1" max="604" value="${QP.ismailPos}" style="width:80px"></label><button class="btn sm">حفظ</button></form>
+      <form class="row small" data-form="qpos" style="margin-top:8px"><label>آخر ربع سمّعته للشيخ <select name="q"><option value="0">لسه</option>${q.Cunits.map(u => `<option value="${u}" ${u === QP.ismailQ ? 'selected' : ''}>${esc(E.quartersText([u]))}</option>`).join('')}</select></label><button class="btn sm">حفظ</button></form>
       <div class="small muted" style="margin-top:6px">التقييمات حتى الآن: جيد ${E.ar(cnt('good'))} · متوسط ${E.ar(cnt('mid'))} · ضعيف ${E.ar(cnt('weak'))}. الضعيف يرجع بعد ٣ أيام.</div></div>
       <div class="card printable"><h2>الأيام الستة القادمة</h2><div class="tblwrap"><table><thead><tr><th>اليوم</th><th>القسم ١</th><th>القسم ٢</th></tr></thead><tbody>${ahead.map(([x, z]) => `<tr><td>${E.DAY_NAMES[E.weekday(x)]}</td><td>${esc(z.aText)}</td><td>${esc(z.bText)}</td></tr>`).join('')}</tbody></table></div></div>
-      <div class="card"><h2>تسميع الشيخ</h2>${QP.ismail.length ? `<ul class="list">${QP.ismail.slice().reverse().map(x => `<li><span class="tag">${x.date}</span><span style="flex:1">${esc(E.quranDay(S, x.date) ? '' : '')}${x.pages.length} صفحات حتى ص ${E.ar(x.pages[x.pages.length - 1])}</span><span>${{ good: 'جيد', mid: 'متوسط', weak: 'ضعيف' }[x.rating]}</span></li>`).join('')}</ul>` : '<div class="empty">سجّل أول تسميع يوم الجمعة أو الأحد من «قرآن اليوم».</div>'}</div>
+      <div class="card"><h2>تسميع الشيخ</h2>${QP.ismail.length ? `<ul class="list">${QP.ismail.slice().reverse().map(x => `<li><span class="tag">${x.date}</span><span style="flex:1">${esc(E.quranDay(S, x.date) ? '' : '')}${x.quarters ? esc(E.quartersText(x.quarters)) : E.ar(x.pages.length) + ' صفحات'}</span><span>${{ good: 'جيد', mid: 'متوسط', weak: 'ضعيف' }[x.rating]}</span></li>`).join('')}</ul>` : '<div class="empty">سجّل أول تسميع يوم الجمعة أو الأحد من «قرآن اليوم».</div>'}</div>
     </div>`;
   };
 
@@ -1680,12 +1713,39 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       <div class="card"><h2>المخطط مقابل المنجز يوميًا</h2><div class="chartbox"><canvas id="r-days" role="img" aria-label="المخطط والمنجز يوميًا"></canvas></div></div></div>`;
   };
 
+  /** «خريطة النظام»: how things flow, at the top of the settings page. */
+  function systemMap() {
+    const F = E.FILES.map(f => `<i style="--c:${f.color}">${esc(f.name)}</i>`).join('');
+    return `<div class="card" style="margin-bottom:14px"><h2>خريطة النظام</h2><div class="smap">
+      <div class="tier"><div class="lbl">١ · بيدخل منين</div><div class="row3">
+        <div class="nd" style="--c:var(--info)"><b>تقويم جوجل</b><span>المواعيد بتنزل لوحدها بزرار ↻، والممسوح يتشال</span></div>
+        <div class="nd" style="--c:var(--warn)"><b>رسالة الجروب</b><span>لصق ← دفعات بقوائمها، طلبات، وتنبيه العاجل</span></div>
+        <div class="nd"><b>انت</b><span>زرار واحد لكل حاجة: فلوس، ليّا/عليّا، بيع، عمل بحثي</span></div></div></div>
+      <div class="arw">كله بيصب في</div>
+      <div class="core"><b>اليوم</b><div class="small muted">المكان الوحيد اللي بتسجّل فيه</div><div class="row2">
+        <div class="nd"><b>المواعيد</b><span>تم / ما تمّش، والدرس تحته «حضّرت»</span></div>
+        <div class="nd" style="--c:#2f7d5b"><b>القرآن بالأرباع</b><span>القسمين ١ و٢ في ١٠ أيام، والجديد حزب للشيخ</span></div>
+        <div class="nd" style="--c:var(--info)"><b>النوم</b><span>سطر الصبح، لحد ما النمط يبان</span></div>
+        <div class="nd" style="--c:var(--warn)"><b>الخيري والشغل</b><span>التلات والأربع: انزل بكام، وظروفها، ونسخ للواتس</span></div></div></div>
+      <div class="arw">وبيتعرض في</div>
+      <div class="tier"><div class="lbl">٢ · العرض</div><div class="casc"><i>الملف (أرشيف الأهداف)</i><em>←</em><i>الشهر</i><em>←</em><i>الأسبوع</i><em>←</em><i>اليوم</i></div>
+        <div class="small muted">الهدف ينزل من فوق لتحت، والتعليم يطلع من «اليوم» لفوق.</div></div>
+      <div class="tier"><div class="lbl">٣ · الملفات (أرشيف للرجوع)</div><div class="chips2">${F}</div></div>
+      <div class="tier"><div class="lbl">٤ · الحفظ</div><div class="row2">
+        <div class="nd"><b>الموبايل</b><span>الأساس، وبيشتغل من غير نت</span></div>
+        <div class="nd" style="--c:var(--info)"><b>نسخة احتياطية</b><span>ملف على درايف، والكود العام من غير بياناتك</span></div></div></div>
+      <div class="tier" style="margin-top:4px"><div class="lbl">يومك في سطور</div><ol>
+        <li>الصبح: سطر النوم، و↻ التقويم لو فيه جديد.</li><li>القرآن: قيّم القسمين، وربع في كل صلاة.</li>
+        <li>المواعيد: علّم تم أو ما تمّش، و«حضّرت» للدرس.</li><li>أي رسالة من الجروب: الصقها. أي فلوس: زرار واحد.</li>
+        <li>التلات والأربع: «انزل بكام»، انسخها للواتس، وبعد التوزيع «وزّعت».</li></ol></div>
+    </div></div>`;
+  }
   V.settings = () => {
     const st = S.settings, srv = Store.server;
     const openC = S.conflicts.filter(c => c.status === 'open'), doneC = S.conflicts.filter(c => c.status !== 'open');
     const series = {}; for (const e of Object.values(S.events)) { const k = e.seriesId || e.id; if (!series[k]) series[k] = { id: e.id, ids: [], title: e.title, kind: E.eventView(S, e).kind, skip: E.eventView(S, e).skip, area: E.eventView(S, e).area, recurring: e.recurring, sample: e.start }; series[k].ids.push(e.id); }
     const DR = { confirmed: ['مؤكد', 'hard'], outdated: ['قديم', 'warn'], missing: ['ناقص', 'bad'], 'needs-update': ['يحتاج تحديثًا', 'warn'] };
-    return `
+    return systemMap() + `
     <div class="grid g2">
       <div class="card"><h2>حالة التكاملات</h2><ul class="list">
         <li><span style="flex:1">وضع التشغيل</span><span class="pill ${Store.mode === 'server' ? 'ok' : ''}">${Store.mode === 'server' ? 'خادم محلي' : 'ملف مستقل (بدون خادم)'}</span></li>
@@ -1772,7 +1832,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       title = `مراجعة القرآن <span class="tag">يوم ${E.ar(q.k)} من ${E.ar(q.n)}</span><div class="small muted">ق١: ${esc(q.aText)}${q.restText ? ' · ق٢: ' + esc(q.restText) : ''}<br>في الصلوات: ${q.inPrayer.map(x => `${x.when} ${esc(x.text.replace(/ \(.*$/, ''))}`).join('، ')}${q.weakDue.length ? `<br><span style="color:var(--bad)">أعد الضعيف: ${q.weakDue.map(w => esc(w.text)).join('، ')}</span>` : ''}${q.missed.length ? `<br><span style="color:var(--warn)">فائت ${E.ar(q.missed.length)} أيام، مكانه ليلة الأربعاء أو مواصلات الاثنين</span>` : ''}</div>`;
       act2 = rate('qday', cur, { good: 'جيد', mid: 'متوسط', weak: 'ضعيف' });
     } else if (q) {
-      title = `${esc(b.title)}<div class="small muted">الحزب: ${q.entry.n ? 'سُمّع اليوم ' + E.ar((q.entry.nPages || []).length) + ' صفحات' : esc(q.nextHizbText)}</div>`;
+      title = `${esc(b.title)}<div class="small muted">الحزب: ${q.entry.n ? 'سُمّع اليوم: ' + esc(E.quartersText(q.entry.nQ || [])) : esc(q.nextHizbText)}</div>`;
       act2 = q.entry.n ? `<span class="tag hard">سُمّع: ${{ good: 'جيد', mid: 'متوسط', weak: 'ضعيف' }[q.entry.n]}</span>` : rate('qismail', null, { good: 'جيد', mid: 'متوسط', weak: 'ضعيف' });
     }
     return `<div class="blk ${st === 'done' ? 'done' : ''} ${past ? 'past' : ''} ${now ? 'now' : ''}" style="--c:${fileColor(fileOfBlock(b)) || areaColor(b.area)}"><span class="tm">${b.start}–${b.end}</span><span><span class="t">${title}</span>${b.kind === 'fixed' ? ' <span class="tag fixed">موعد</span>' : ''}</span>${act2}</div>`;
@@ -2303,7 +2363,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       if (/^q-/.test(f.dataset.form)) { closeModal(); toast('اتسجل'); }
       if (f.dataset.form === 'gcid') { S.settings.googleClientId = v.gcid.trim(); toast('اتحفظ'); }
       if (f.dataset.form === 'sleep') E.logSleep(S, today(), { slept: v.slept, woke: v.woke, nap: v.nap === 'on' });
-      if (f.dataset.form === 'qpos') S.qplan.ismailPos = Math.max(1, Math.min(604, +v.pos || S.qplan.ismailPos));
+      if (f.dataset.form === 'qpos') { const C = E.quranDay(S, today()).Cunits, n = +v.q; S.qplan.ismailQ = n ? n : Math.min(...C) - 1; }
       if (f.dataset.form === 'exp-add') S.charity.expenses.push({ date: v.date, caseIdx: +v.caseIdx, amount: +v.amount, note: v.note });
       save(); render(); return; }
     if (f.id === 'task-form') { e.preventDefault(); const days = new FormData(f).getAll('rd').map(Number);
