@@ -157,6 +157,9 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 .q-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .qc{border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;background:var(--panel2);min-width:0}
 .qc-h{display:flex;flex-direction:column;line-height:1.3} .qc-h strong{color:color-mix(in srgb,var(--sc) 80%,var(--ink))}
+.qc-when{font-size:11.5px;color:var(--ink2);margin-top:2px}
+.qc-lv{display:flex;gap:4px} .qc-lv button{flex:1;border:1px solid var(--line2);background:var(--panel);border-radius:8px;padding:2px 0;font-size:12px;cursor:pointer}
+.qc-lv button.on{color:#fff;border-color:transparent} .qc-lv .lv-good{background:var(--ok)} .qc-lv .lv-mid{background:var(--warn)} .qc-lv .lv-weak{background:var(--bad)}
 .qc-amt{font-weight:600;font-size:15px;line-height:1.5;flex:1}
 .qc-tag{font-size:11.5px;color:var(--muted)} .qc-tag.ok{color:var(--ok);font-weight:600} .qc-tag.bad{color:var(--bad);font-weight:600}
 .qc.st-done{background:color-mix(in srgb,var(--ok) 8%,var(--panel));border-color:color-mix(in srgb,var(--ok) 35%,var(--line))}
@@ -231,7 +234,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1428';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1435';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -2023,7 +2026,8 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const cur = plan.blocks.find(b => b.startMin <= n && b.endMin > n && !b.frozen);
     const comp = completion(plan);
     const log = (S.awradLog || {})[d] || {};
-    const items = plan.blocks.filter(b => b.type !== 'prayer' && b.type !== 'routine');
+    const isQ = b => S.qplan && S.qplan.prog && (b.type === 'quran' || b.taskId === 'goal:g-q-asr'); // shown inside the Quran element instead
+    const items = plan.blocks.filter(b => b.type !== 'prayer' && b.type !== 'routine' && !isQ(b));
     const energy = (S.energy.filter(e => e.date === d).slice(-1)[0] || {}).level;
     return `${!SNAP && !Object.keys(S.events || {}).length ? `<div class="card" style="margin-bottom:14px;border-color:var(--accent)"><h2>أهلًا، خطوة واحدة</h2><div class="small">النسخة المنشورة لا تحمل بياناتك الشخصية. اختر ملف النسخة الاحتياطية (من فولدر Life OS في الدرايف) مرة واحدة، وبعدها كل شيء يبقى على هذا الجهاز.</div><label class="btn primary" style="margin-top:8px">استعادة نسختي<input type="file" accept=".json,application/json" data-a="restore" hidden></label></div>` : ''}${sleepCard(d)}${quranElement(d)}${hubCard(d)}
     <div class="grid g3">
@@ -2034,7 +2038,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     <div class="card" style="margin-top:14px"><h2>جدول اليوم<span class="sp"></span><button class="btn sm ghost" data-a="log">تسجيل نشاط</button><button class="btn sm" data-a="incident">طارئ أو تأخير</button><button class="btn sm primary" data-a="replan">إعادة تخطيط اليوم</button></h2>
       <div class="tl">${items.map(b => todayRow(b, d, n)).join('')}</div>
       ${plan.postponed.length ? `<div class="small muted" style="margin-top:8px">لم يتسع له اليوم: ${plan.postponed.map(p => esc(p.title) + ' (' + esc(p.reason.split(' — ')[0]) + ')').join('، ')}</div>` : ''}
-      <div class="small muted" style="margin-top:6px">الصلوات والقيلولة محجوزة ولا تظهر هنا. <a href="#day">الجدول الكامل</a></div>
+      <div class="small muted" style="margin-top:6px">الصلوات والقيلولة محجوزة ولا تظهر هنا، وحصص القرآن في عنصر «القرآن» فوق. <a href="#day">الجدول الكامل</a></div>
     </div>
     ${projectsToday()}
     <div class="card" style="margin-top:14px"><h2>أهداف هذا الشهر<span class="sp"></span><a class="small" href="#goals2">تعديل</a></h2>
@@ -2167,19 +2171,25 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       ${first ? '' : `<ul class="list sl-list">${x.sessions.map((s, i) => `<li><span class="sl-n">${E.ar(i + 1)}</span><span class="sl-t"><bdi>${s.from}</bdi> ← <bdi>${s.to}</bdi></span><span class="muted small" style="flex:1">${D((E.toMin(s.to) - E.toMin(s.from) + 1440) % 1440)}</span><button class="btn sm ghost danger" data-a="sleep-del" data-id="${esc(s.id)}" aria-label="حذف">✕</button></li>`).join('')}${legacyNap}</ul>`}
       <form class="row sl-form" data-form="sleep"><label class="f">نمت<input type="time" name="from" value="${first ? st.sleepTime : ''}" required></label><label class="f">صحيت<input type="time" name="to" value="${first ? st.dayStart : ''}" required></label>
       <button class="btn primary">${first ? 'سجّل' : '＋ جلسة نوم تانية'}</button></form>
-      <div class="small muted" style="margin-top:6px">نمت أكتر من مرة؟ سجّل كل نومة لوحدها، والمجموع بيتحسب لوحده. الهدف: <bdi dir="ltr">${st.sleepTime}–${st.dayStart}</bdi> + قيلولة ${E.ar(st.nap.minutes)} د. ${pat}</div></div>`;
+      <div class="small muted" style="margin-top:6px">نمت أكتر من مرة؟ سجّل كل نومة لوحدها، والمجموع بيتحسب لوحده. نومة الليل بتتحسب على اليوم اللي صحيت فيه. الهدف: <bdi dir="ltr">${st.sleepTime}–${st.dayStart}</bdi> + قيلولة ${E.ar(st.nap.minutes)} د. ${pat}</div></div>`;
   }
   // ------------------------------------------------------------- v5: the Quran element on «اليوم» (only place it is ticked)
   const daysTxt = n => n === 1 ? 'يوم' : n === 2 ? 'يومين' : E.ar(n) + (n <= 10 ? ' أيام' : ' يوم');
   function quranElement(d) {
     const x = E.quranToday(S, d); if (!x) return '';
     const late = x.late.map(p => `${p.name} (${daysTxt(p.behind)})`).join('، ');
+    const plan = E.currentPlan(S, d), blk = f => plan && plan.blocks.find(f);
+    const ses = { a: blk(b => b.type === 'quran'), c: blk(b => b.taskId === 'goal:g-q-asr') };
+    const when = k => k === 'b' ? 'في القيام والسنن الرواتب' : ses[k] ? `<bdi dir="ltr">${ses[k].start}–${ses[k].end}</bdi>` : 'مفيش وقت فاضي النهارده';
+    const LV = { good: 'جيد', mid: 'متوسط', weak: 'ضعيف' };
     const col = p => {
-      const head = `<div class="qc-h"><strong>${p.name}</strong><span class="small muted">${p.sub}</span></div>`;
+      const head = `<div class="qc-h"><strong>${p.name}</strong><span class="small muted">${p.sub}</span>${p.todayDone ? '' : `<span class="qc-when">🕐 ${when(p.key)}</span>`}</div>`;
       if (p.finished) return `<div class="qc is-done">${head}<div class="qc-amt">خلص الجديد لحد يس 🎉</div></div>`;
       const st = p.todayDone ? 'done' : p.behind ? 'late' : p.skipped ? 'skip' : 'open';
       const meta = p.todayDone ? `<span class="qc-tag ok">✓ تم النهارده</span>` : p.behind ? `<span class="qc-tag bad">متأخر ${daysTxt(p.behind)}: ده مقدار ${fmtDate(p.forDay)}</span>` : p.skipped ? '<span class="qc-tag">اترحل لبكرة</span>' : `<span class="qc-tag">مقدار النهارده${p.cycleDay ? ` · يوم ${E.ar(p.cycleDay)} من ${E.ar(x.cycle)}` : ''}</span>`;
-      const did = p.doneToday.length ? `<div class="qc-did small">${p.doneToday.map(u => '✓ ' + esc(u.text)).join('<br>')}<button class="linkbtn" data-a="q-undo" data-k="${p.key}">تراجع</button></div>` : '';
+      const lastH = S.qplan.hist.filter(h => h.part === p.key && h.date === d).slice(-1)[0];
+      const lv = lastH ? `<div class="qc-lv">${Object.entries(LV).map(([k, v]) => `<button class="${lastH.level === k ? 'on lv-' + k : ''}" data-a="q-level" data-k="${p.key}" data-v="${k}">${v}</button>`).join('')}</div>` : '';
+      const did = p.doneToday.length ? `<div class="qc-did small">${p.doneToday.map(u => '✓ ' + esc(u.text)).join('<br>')}<button class="linkbtn" data-a="q-undo" data-k="${p.key}">تراجع</button></div>${lv}` : '';
       const btns = p.todayDone ? `<button class="btn sm ghost" data-a="q-tick" data-k="${p.key}">＋ زوّد: ${esc(p.cur.text)}</button>`
         : `<div class="qc-btns"><button class="btn primary" data-a="q-tick" data-k="${p.key}">تم ✓</button>${p.skipped || p.behind ? '' : `<button class="btn ghost" data-a="q-skip" data-k="${p.key}">لأ</button>`}</div>`;
       return `<div class="qc st-${st}">${head}${meta}${p.todayDone ? '' : `<div class="qc-amt">${esc(p.cur.text)}</div>`}${did}${btns}${p.left != null ? `<div class="small muted qc-foot">باقي ${E.ar(p.left)} ربع لحد يس</div>` : ''}</div>`;
@@ -2614,6 +2624,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       case 'k-step-del': { const it = S.knowledge.items.find(x => x.id === t.dataset.id); it.steps.splice(+t.dataset.i, 1); save(); render(); break; }
       case 'q-tick': { const u = E.quranTick(S, today(), t.dataset.k); save(); render(); if (u) toast('✓ ' + E.quartersText(u.quarters)); break; }
       case 'q-undo': E.quranUndo(S, today(), t.dataset.k); save(); render(); break;
+      case 'q-level': { const h = S.qplan.hist.filter(x => x.part === t.dataset.k && x.date === today()).slice(-1)[0]; if (h) { h.level = h.level === t.dataset.v ? null : t.dataset.v; save(); render(); } break; }
       case 'q-skip': E.quranSkip(S, today(), t.dataset.k); save(); render(); toast('هيترحل لبكرة لوحده'); break;
       case 'ismail-done': { const k = t.dataset.k, r = E.ismailDone(S, today()); S.taskStatus[k] = Object.assign(S.taskStatus[k] || {}, { done: true }); save(); render(); toast(r ? 'سمّعت: ' + E.quartersText(r) : 'اتسجل'); break; }
       case 'qday': E.rateQuranDay(S, today(), t.dataset.r); save(); render(); break;
