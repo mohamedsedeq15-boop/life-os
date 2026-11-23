@@ -257,7 +257,7 @@ ol.price{margin:0;padding-inline-start:20px;display:grid;gap:6px;font-size:14px}
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1549';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1738';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -827,6 +827,21 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
   const currentPlan = (state, day) => { const r = state.plans[day]; return r && r.versions.length ? r.versions[r.versions.length - 1] : null; };
 
+  /** A task said or typed for today goes straight into today's plan, in the first free gap from now (23 Nov: «لما احط مهمة في اليوم تظهر في الجدول»). */
+  function addTodayTask(state, day, now, title, minutes, area) {
+    const t = { id: uid('t'), title: String(title).trim(), area: area || 'work', duration: minutes || 30, priority: 3, energy: 'medium', due: day, projectRef: null, recurrence: null, status: 'active', source: 'اليوم' };
+    state.tasks.push(t);
+    const plan = currentPlan(state, day); if (!plan) return t;
+    const need = t.duration, n = Math.max(toMin(state.settings.dayStart), Math.ceil(relMin(now, day) / SLOT) * SLOT), end = toMin(state.settings.sleepTime) > n ? toMin(state.settings.sleepTime) : 1440;
+    let s = n;
+    for (const b of plan.blocks.filter(x => x.endMin > n).sort((x, y) => x.startMin - y.startMin)) { if (b.startMin - s >= need) break; s = Math.max(s, b.endMin); }
+    if (s + need > end) s = n;
+    plan.blocks.push({ id: uid('b'), type: 'task', kind: 'flexible', title: t.title, area: t.area, cat: 'achievement', startMin: s, endMin: s + need, start: hm(s), end: hm(s + need), instance: t.id, taskId: t.id });
+    plan.blocks.sort((x, y) => x.startMin - y.startMin);
+    return t;
+  }
+  /** What the user did today outside the plan («عملت …», «تسجيل نشاط»): counted as done. */
+  function extraDone(state, day) { return state.logs.filter(l => l.date === day && !l.instance && l.category === 'achievement' && l.minutes > 0); }
   function instanceDone(state, b) {
     if (!b.instance) return false;
     return !!(state.taskStatus[b.instance] || {}).done;
@@ -1278,13 +1293,14 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     return { qty, unit, lines, best, jobs, projects, hasData: !!(P && P.refs.length), suggest: best ? best.mid : null, floor: best ? best.min : null };
   }
   /** A spoken or typed line, read by its first word: فكرة / مهمة / ضيعت|عملت / سعر / عمل بحثي. */
+  const noDur = x => x.replace(/^(ساعتين|ساعه|ساعة|نص ساعة|نص ساعه|ربع ساعة|ربع ساعه|[\d٠-٩]+\s*(دقيقة|دقيقه|دقايق|دقائق|ساعات|ساعة|ساعه))(\s+ونص)?\s+(في\s+|على\s+|علي\s+)?/, '').replace(/\s*(في\s+|لمدة\s+)?(ساعتين|ساعه|ساعة|نص ساعة|نص ساعه|ربع ساعة|ربع ساعه|[\d٠-٩]+\s*(دقيقة|دقيقه|دقايق|دقائق|ساعات|ساعة|ساعه))(\s+ونص)?\s*$/, '').trim() || x;
   function parseCommand(text) {
     const t = String(text || '').trim(), n = norm(t), rest = t.replace(/^\S+\s*/, '').trim();
     const first = n.split(/\s+/)[0] || '';
     if (/^فكر/.test(first)) { const c = Object.entries({ worship: /عباد|صلا|قران|ذكر|صيام/, work: /شغل|عمل|عميل|بيع|تسويق/, knowledge: /علم|درس|كتاب|بحث|متن|مذاكر/ }).find(([, re]) => re.test(n)); return { kind: 'idea', text: rest || t, cat: c ? c[0] : 'life' }; }
-    if (/^مهم/.test(first)) return { kind: 'task', text: rest || t, minutes: spokenMinutes(t) || 30 };
-    if (/^(ضيعت|ضاع|ضيع)/.test(first)) return { kind: 'log', text: rest || t, minutes: spokenMinutes(t) || 30, category: 'unplanned' };
-    if (/^(عملت|خلصت|اشتغلت|ذاكرت|قريت)/.test(first)) return { kind: 'log', text: t, minutes: spokenMinutes(t) || 30, category: 'achievement' };
+    if (/^مهم/.test(first)) return { kind: 'task', text: noDur(rest || t), minutes: spokenMinutes(t) || 30 };
+    if (/^(ضيعت|ضاع|ضيع)/.test(first)) return { kind: 'log', text: noDur(rest || t), minutes: spokenMinutes(t) || 30, category: 'unplanned' };
+    if (/^(عملت|خلصت|اشتغلت|ذاكرت|قريت)/.test(first)) return { kind: 'log', text: noDur(rest || t), minutes: spokenMinutes(t) || 30, category: 'achievement' };
     if (/^(سعر|تسعير|سعرلي|قدر|كام)/.test(first)) return { kind: 'price', text: rest || t };
     if (/^عمل بحثي/.test(n)) { const a = (n.match(/(\d+)/) || [])[1]; return { kind: 'research', text: t.replace(/^عمل بحثي\s*/, '').replace(/\s*(ب|بـ)?\s*[\d٠-٩]+\s*(ريال|جنيه|ج)?\s*$/, '').trim(), amount: a ? +a : 0 }; }
     return { kind: 'unknown', text: t };
@@ -1619,7 +1635,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
 
   const API = { AREAS, CATS, AREA_TO_CAT, DAY_NAMES, SLOT, hm, toMin, dateStr, parseDate, addDays, weekday, localStamp, relMin, daysBetween, weekStart, range, uid, clone, ar, fmtDur, hash,
-    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
+    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, addTodayTask, extraDone, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
     eventsOn, eventView, planDay, savePlan, currentPlan, replanDay, diffPlans, capacity, taskInstances, logActivity, addIncident, addEnergy, instanceDone,
     periodRange, analyze, reportText, assistant, assistantContext, pearson };
   g.LifeOS = API;
@@ -1735,6 +1751,9 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     if (!plan) return { pct: 0, done: 0, total: 0 };
     let total = 0, done = 0;
     for (const b of plan.blocks) if (b.instance && ['task', 'quran', 'work', 'event'].includes(b.type)) { const m = b.endMin - b.startMin; total += m; const st = S.taskStatus[b.instance] || {}; done += st.done ? m : Math.min(m, st.minutes || 0); }
+    const d = plan.day || today();
+    for (const b of plan.blocks) if (!b.instance && b.type === 'event' && b.eventId) { const es = S.taskStatus['ev:' + b.eventId + '@' + d] || {}; if (es.cancel) continue; const m = b.endMin - b.startMin; total += m; if (es.done) done += m; }
+    for (const l of E.extraDone(S, d)) { total += l.minutes; done += l.minutes; }
     return { pct: total ? Math.round(done / total * 100) : 0, done, total };
   }
   const areaOpts = sel => Object.entries(E.AREAS).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${v.name}</option>`).join('');
@@ -2167,7 +2186,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     </div>
       <div class="card" data-s="worship" style="margin-top:14px"><h2>الأوراد اليومية</h2><div class="chips">${(S.awrad || []).filter(w => !w.days || w.days.includes(E.weekday(d))).map(w => `<button title="${esc(w.note || '')}" data-a="wird" data-id="${w.id}" class="${log[w.id] ? 'on' : ''}">${log[w.id] ? '✓ ' : ''}${esc(w.title)}</button>`).join('')}</div></div>
     <div class="card" style="margin-top:14px"><h2>جدول اليوم<span class="sp"></span><button class="btn sm ghost" data-a="log">تسجيل نشاط</button><button class="btn sm" data-a="incident">طارئ أو تأخير</button><button class="btn sm primary" data-a="replan">إعادة تخطيط اليوم</button></h2>
-      <div class="tl">${items.map(b => todayRow(b, d, n)).join('')}</div>
+      <div class="tl">${[...items.map(b => [b.startMin, todayRow(b, d, n)]), ...E.extraDone(S, d).map(l => [E.toMin(l.start || '00:00'), extraRow(l)])].sort((x, y) => x[0] - y[0]).map(x => x[1]).join('')}</div>
       ${plan.postponed.length ? `<div class="small muted" style="margin-top:8px">لم يتسع له اليوم: ${plan.postponed.map(p => esc(p.title) + ' (' + esc(p.reason.split(' — ')[0]) + ')').join('، ')}</div>` : ''}
       <div class="small muted" style="margin-top:6px">الصلوات والقيلولة محجوزة ولا تظهر هنا، وحصص القرآن في عنصر «القرآن» تحت. <a href="#day">الجدول الكامل</a></div>
     </div>
@@ -2175,6 +2194,9 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     <div style="margin-top:14px"></div>${quranElement(d)}${projectsToday()}
     <div style="margin-top:14px"></div>${hubCard(d)}${sleepCard(d)}`;
   };
+  function extraRow(l) {
+    return `<div class="blk done" style="--c:${areaColor(l.area)}"><span class="tm">${l.start ? l.start + '–' + l.end : D(l.minutes)}</span><span><span class="t">${esc(l.title || 'نشاط')}</span> <span class="tag">من برّه الخطة</span></span><span class="act row"><span class="tag hard">تم ✓</span><button class="btn sm ghost danger" data-a="log-del" data-id="${l.id}" aria-label="حذف">✕</button></span></div>`;
+  }
   function todayRow(b, d, n) {
     const st = blockState(b), past = b.endMin <= n, now = b.startMin <= n && b.endMin > n;
     const missed = b.instance && (S.taskStatus[b.instance] || {}).missed;
@@ -2722,7 +2744,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   function commandSave(c) {
     const now = nowStamp(), end = E.toMin(now.slice(11, 16));
     if (c.kind === 'idea') { E.addIdea(S, c.text, c.cat, today()); return 'اتحطت في الأفكار (' + E.IDEA_CATS[c.cat] + ')'; }
-    if (c.kind === 'task') { S.tasks.push({ id: E.uid('t'), title: c.text, area: 'work', duration: c.minutes || 30, priority: 2, energy: 'medium', due: today(), projectRef: null, recurrence: null, status: 'active', source: 'المساعد' }); return 'اتضافت لمهام النهارده'; }
+    if (c.kind === 'task') { ensureTodayPlan(); const t = E.addTodayTask(S, today(), now, c.text, c.minutes || 30, 'work'); const b = E.currentPlan(S, today()).blocks.find(x => x.taskId === t.id); return `اتحطت في جدول النهارده${b ? ' ' + b.start : ''}`; }
     if (c.kind === 'log') { E.logActivity(S, { date: today(), start: H(Math.max(0, end - c.minutes)), end: H(end), area: c.category === 'unplanned' ? 'rest' : 'work', category: c.category, title: c.text, note: 'من المساعد' }); return c.category === 'unplanned' ? `اتسجل وقت ضايع ${D(c.minutes)}` : `اتسجل إنجاز ${D(c.minutes)}`; }
     if (c.kind === 'research') { S.work2.research.push({ id: E.uid('rs'), title: c.text, amount: c.amount || 0, received: false, date: today() }); return 'اتضاف للعمل البحثي'; }
     return '';
@@ -2855,6 +2877,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       case 'qweak': if (t.dataset.r !== 'weak') E.rateWeakAgain(S, today(), t.dataset.from, t.dataset.part); else toast('يبقى في قائمة الإعادة'); save(); render(); break;
       case 'qismail': E.ismailRecited(S, today(), t.dataset.r); save(); render(); toast('سُجّل التسميع، والحزب التالي جاهز'); break;
       case 'assistant': assistantDialog(); break;
+      case 'log-del': if (confirm('أشيل النشاط ده؟')) { S.logs = S.logs.filter(x => x.id !== t.dataset.id); save(); render(); } break;
       case 'idea-del': if (confirm('حذف الفكرة؟')) { S.ideas = S.ideas.filter(x => x.id !== t.dataset.id); save(); render(); } break;
       case 'cal-sync': syncCalendarLive(); break;
     }
