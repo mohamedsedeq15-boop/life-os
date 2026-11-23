@@ -130,7 +130,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0247';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-0311';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1047,7 +1047,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       hours: +(avg(rows.map(dur)) / 60).toFixed(1), naps: rows.filter(r => r.nap).length, onTime };
   }
   // ---------------------------------------------------------------- v3 (23 Nov): charity = checklist + cash ledger; work = research list + open devices
-  const CHARITY_CATS = ['ديون', 'مرضى', 'مطبخ', 'مسنات', 'شهريات', 'حالات عاجلة', 'متفرقات'];
+  const CHARITY_CATS = ['ديون', 'مرضى', 'مطبخ', 'مسنات', 'شهريات', 'متفرقات'];
   function seedV3(state) {
     if ((state.v3 || 0) >= 1) return false;
     const ch = state.charity = state.charity || { cases: [], expenses: [] };
@@ -1089,7 +1089,6 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     if (/دين|ديون|غارم/.test(t)) return 'ديون';
     if (/مرض|علاج|عملية|دواء|كشف|أشعة/.test(t)) return 'مرضى';
     if (/مطبخ|مفرمة|برجر|لحم|طبخ|أكل/.test(t)) return 'مطبخ';
-    if (/عاجل/.test(t)) return 'حالات عاجلة';
     if (/مسن/.test(t)) return 'مسنات';
     if (/شهري/.test(t)) return 'شهريات';
     return 'متفرقات';
@@ -1114,15 +1113,35 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     return out.filter(b => b.items.length);
   }
   /** Batch items go on the Wednesday list. Money is recorded when it reaches the user (opts.received), not when the group sends the batch. A batch already pasted is skipped. */
+  /** Urgent case paid from money on hand, outside any batch message. It waits to be matched with an item of a later batch. */
+  function addUrgent(state, x) {
+    const e = addLedger(state, { date: x.date, kind: 'out', amount: x.amount, cat: x.cat, note: x.note });
+    e.status = 'done'; e.doneAt = x.date; e.urgent = true; e.list = x.cat; return e;
+  }
+  const openUrgent = state => (state.charity.ledger || []).filter(e => e.urgent && !e.coveredBy);
+  /** Marks batch items that look like an urgent case already paid (same amount, same category preferred). */
+  function matchUrgent(state, batches) {
+    const pool = openUrgent(state).slice();
+    for (const b of batches) for (const x of b.items) {
+      let i = pool.findIndex(u => u.amount === x.amount && u.cat === x.cat); if (i < 0) i = pool.findIndex(u => u.amount === x.amount);
+      if (i >= 0) { x.urgentId = pool[i].id; x.urgentDate = pool[i].date; x.urgentNote = pool[i].note; pool.splice(i, 1); } else { delete x.urgentId; }
+    }
+    return batches;
+  }
+  /** Batch items go on the Wednesday list. Money is recorded when it reaches the user (opts.received), not when the group sends the batch. A batch already pasted is skipped. Items matched to an urgent case are not added again (already paid). */
   function addBatches(state, batches, opts) {
     opts = opts || {}; const seen = state.charity.batchKeys = state.charity.batchKeys || [];
-    let added = 0, skipped = 0;
+    let added = 0, skipped = 0, urgent = 0;
     for (const b of batches) {
       const key = b.date + ':' + b.total; if (seen.includes(key)) { skipped++; continue; } seen.push(key); added++;
       if (opts.received) addLedger(state, { date: b.date, kind: 'in', amount: b.total, note: 'دفعة ' + b.date.slice(8) + '/' + b.date.slice(5, 7) });
-      for (const x of b.items) { const e = addLedger(state, { date: b.date, kind: 'out', amount: x.amount, cat: x.cat, note: x.note }); e.list = x.list || x.cat; e.batch = b.date; if (opts.distributed) { e.status = 'done'; e.doneAt = b.date; } }
+      for (const x of b.items) {
+        const u = x.urgentId && state.charity.ledger.find(e => e.id === x.urgentId && e.urgent && !e.coveredBy);
+        if (u) { u.coveredBy = b.date; urgent++; continue; }
+        const e = addLedger(state, { date: b.date, kind: 'out', amount: x.amount, cat: x.cat, note: x.note }); e.list = x.list || x.cat; e.batch = b.date; if (opts.distributed) { e.status = 'done'; e.doneAt = b.date; }
+      }
     }
-    return { added, skipped };
+    return { added, skipped, urgent };
   }
   /** Numbered lists (ديون ١٤٣، مرضى ١٧٤…): last one seen in pasted batches or set by hand, and the next number. */
   function listNumbers(state) {
@@ -1203,7 +1222,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
 
   const API = { AREAS, CATS, AREA_TO_CAT, DAY_NAMES, SLOT, hm, toMin, dateStr, parseDate, addDays, weekday, localStamp, relMin, daysBetween, weekStart, range, uid, clone, ar, fmtDur, hash,
-    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, seedSleep, logSleep, sleepStats, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, parseBatches, addBatches, wedPlan, listNumbers, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
+    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, seedSleep, logSleep, sleepStats, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
     eventsOn, eventView, planDay, savePlan, currentPlan, replanDay, diffPlans, capacity, taskInstances, logActivity, addIncident, addEnergy, instanceDone,
     periodRange, analyze, reportText, assistant, assistantContext, pearson };
   g.LifeOS = API;
@@ -1834,7 +1853,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   // ------------------------------------------------------------- v3: quick entry on «اليوم», charity money, work lists
   const money = n => Number(n || 0).toLocaleString('ar-EG', { maximumFractionDigits: 0 }) + ' ج';
   const QUICK = [
-    ['paste', 'لصق رسالة الجروب', 'خيري'], ['in', 'فلوس وصلت', 'خيري'], ['personal', 'ليّا / عليّا', 'خيري'],
+    ['paste', 'لصق رسالة الجروب', 'خيري'], ['in', 'فلوس وصلت', 'خيري'], ['urgent', 'حالة عاجلة', 'خيري'], ['personal', 'ليّا / عليّا', 'خيري'],
     ['sale', 'تسجيل بيع', 'شغل'], ['research', 'عمل بحثي', 'شغل'],
   ];
   function quickForm(k) {
@@ -1843,6 +1862,8 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     if (k === 'paste') return `<h2>لصق رسالة الجروب</h2><p class="small muted">انسخ رسالة أو أكتر من رسايل «دفعة» زي ما هي والصقها هنا. البنود بتروح لقائمة الأربعاء بتفاصيلها، واسم اللي باعت الرسالة مش بيتحفظ.</p>
       <form class="form" data-form="q-paste"><textarea name="txt" rows="7" required style="width:100%"></textarea><div id="paste-prev" class="small"></div>
       <label class="f"><span><input type="checkbox" name="received"> فلوسها وصلتني خلاص</span></label><label class="f"><span><input type="checkbox" name="done"> دي اتوزعت قبل كده (أرشيف بس)</span></label><button class="btn primary">سجّل</button></form>`;
+    if (k === 'urgent') return `<h2>حالة عاجلة (اتصرفت من اللي معايا)</h2><form class="form" data-form="q-urgent">${d}${amt}<label class="f">التصنيف<select name="cat">${E.CHARITY_CATS.map(c => `<option>${c}</option>`).join('')}</select></label><label class="f">إيه هي<input type="text" name="note" required></label>
+      <p class="small muted">لو البند ده جه بعدين في رسالة الجروب، التطبيق هينبهك ومش هيحسبه تاني.</p><button class="btn primary">سجّل</button></form>`;
     if (k === 'in') return `<h2>فلوس وصلت للجمعية</h2><form class="form" data-form="q-in">${d}${amt}${note('من مين أو لأي حالات')}<button class="btn primary">سجّل</button></form>`;
     if (k === 'out') return `<h2>صرف (قائمة الأربعاء)</h2><form class="form" data-form="q-out">${d}${amt}<label class="f">النوع<select name="cat">${E.CHARITY_CATS.map(c => `<option>${c}</option>`).join('')}</select></label>${note('رقم الحالة أو وصف قصير، بلا أسماء ولا أرقام قومية')}<button class="btn primary">أضف للقائمة</button></form>`;
     if (k === 'personal') return `<h2>ليّا / عليّا</h2><form class="form" data-form="q-personal">${d}${amt}<label class="f">الاتجاه<select name="sign"><option value="+">ليّا</option><option value="-">عليّا</option></select></label>
@@ -1864,9 +1885,26 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
         <a href="#file?f=charity">الخيري: معاك <strong>${money(x.onHand)}</strong> · قائمة الأربعاء <strong>${money(x.pendingTotal)}</strong>${x.pendingTotal ? (x.gap < 0 ? ` · <span style="color:var(--bad)">ناقص ${money(-x.gap)}</span>` : ` · يفضل ${money(x.gap)}`) : ''}</a>
         <a href="#file?f=work">الشغل: ربح الشهر ${money((W.sales || []).filter(y => y.date.slice(0, 7) === d.slice(0, 7)).reduce((a, y) => a + y.profit, 0))}${unpaid.length ? ` · ${E.ar(unpaid.length)} عمل بحثي حسابه لسه (${money(unpaid.reduce((a, r) => a + r.amount, 0))})` : ''}</a></div>
       ${todo.length ? `<div class="chips" style="margin-top:8px">${todo.map(t => `<button data-a="ctodo" data-id="${t.id}" title="علّمه تم">☐ ${esc(t.title)}</button>`).join('')}</div>` : ''}
+      ${E.openUrgent(S).length ? `<a class="small" href="#file?f=charity" style="display:block;margin-top:6px;color:var(--warn,#d97706)">⚠ ${E.ar(E.openUrgent(S).length)} حالة عاجلة اتصرفت ومستنية الرسالة</a>` : ''}
       ${wed ? wedList() : ''}</div>`;
   }
   /** Open «ليّا / عليّا» items: each says with which account and for what; «خدتهم / رجّعتهم» settles it (kept in the history). */
+  function urgentBox() {
+    const U = E.openUrgent(S); if (!U.length) return '';
+    return `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><strong style="color:var(--warn,#d97706)">⚠ عاجل اتصرف ومستني الرسالة</strong><ul class="list">${U.map(e => `<li><span class="tag">${e.date.slice(5)}</span><span style="flex:1">${esc(e.cat)} — ${esc(e.note)}</span><strong>${money(e.amount)}</strong><button class="btn sm ghost" data-a="urg-close" data-id="${e.id}" title="مش هييجي في رسالة">قفلها</button></li>`).join('')}</ul></div>`;
+  }
+  /** The Wednesday plan as plain text for WhatsApp (*bold* headings). */
+  function wedText() {
+    const p = E.wedPlan(S), n = x => Number(x).toLocaleString('en-US'), clean = t => String(t || '').replace(/^[^·]*·\s*/, '');
+    const block = a => a.map(v => `*${v.list}: ${n(v.total)}*\n` + v.items.map(e => `- ${clean(e.note) || v.list} ${n(e.amount)}`).join('\n')).join('\n\n');
+    let t = `*توزيع ${fmtDate(today())}*\nمعايا ${n(p.onHand)} · المطلوب ${n(p.need)}\n\n` + block(p.envelopes) + `\n\n*الإجمالي: ${n(p.take)}*`;
+    if (p.waiting.length) t += `\n\n*مستني فلوس (ناقص ${n(p.short)}):*\n` + block(p.waitingEnvelopes);
+    return t;
+  }
+  async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); toast('اتنسخ، الصقه في الواتس'); }
+    catch (e) { if (navigator.share) { try { await navigator.share({ text: t }); } catch (x) { } } else modal(`<h2>انسخ النص</h2><textarea rows="12" style="width:100%">${esc(t)}</textarea>`); }
+  }
   function listsBox() {
     const L = E.listNumbers(S);
     return `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px;display:grid;gap:6px">${['ديون', 'مرضى'].map(c => `<form class="row" data-form="lastlist" data-c="${c}" style="gap:6px;align-items:center"><span style="flex:1">آخر قائمة ${c}: <strong>${L[c].last || '—'}</strong>${L[c].next ? ` · الجاية <strong>${L[c].next}</strong>` : ''}</span><input type="number" name="n" placeholder="رقم" inputmode="numeric" style="width:80px"><button class="btn sm ghost">تعديل</button></form>`).join('')}</div>`;
@@ -1888,9 +1926,9 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   function pastePreview(m) {
     const ta = m.querySelector('textarea'), box = m.querySelector('#paste-prev');
     ta.addEventListener('input', () => {
-      const b = E.parseBatches(ta.value, +today().slice(0, 4));
-      box.innerHTML = b.length ? `<ul class="list">${b.map(x => `<li><span style="flex:1"><strong>دفعة ${x.date.slice(8)}/${x.date.slice(5, 7)}</strong> ${x.ok ? '' : `<span style="color:var(--bad)">(المكتوب ${money(x.stated)})</span>`}<br><span class="muted">${x.items.map(i => esc(i.list) + ' ' + money(i.amount)).join('، ')}</span></span><strong>${money(x.total)}</strong></li>`).join('')}</ul>`
-        : (ta.value.trim() ? '<span class="muted">مش لاقي «دفعة يوم-شهر» في النص.</span>' : '');
+      const b = E.matchUrgent(S, E.parseBatches(ta.value, +today().slice(0, 4))), U = b.flatMap(x => x.items.filter(i => i.urgentId));
+      box.innerHTML = (U.length ? `<div style="color:var(--warn,#d97706);margin:6px 0">⚠ ${U.map(i => `${money(i.amount)} ${esc(i.list)} اتصرفت عاجل يوم ${i.urgentDate.slice(8)}/${i.urgentDate.slice(5, 7)} (${esc(i.urgentNote)})`).join('، ')}. مش هتتحسب تاني.</div>` : '') + (b.length ? `<ul class="list">${b.map(x => `<li><span style="flex:1"><strong>دفعة ${x.date.slice(8)}/${x.date.slice(5, 7)}</strong> ${x.ok ? '' : `<span style="color:var(--bad)">(المكتوب ${money(x.stated)})</span>`}<br><span class="muted">${x.items.map(i => esc(i.list) + ' ' + money(i.amount)).join('، ')}</span></span><strong>${money(x.total)}</strong></li>`).join('')}</ul>`
+        : (ta.value.trim() ? '<span class="muted">مش لاقي «دفعة يوم-شهر» في النص.</span>' : ''));
     });
   }
   /** Wednesday: how much to take, split into envelopes per list; what the money on hand doesn't cover waits or comes from the user's pocket. */
@@ -1901,13 +1939,14 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       ${p.envelopes.length ? `<div class="small muted" style="margin-top:4px">قسّمها كده:</div>${envs(p.envelopes)}` : ''}
       ${p.waiting.length ? `<div class="small" style="margin-top:6px;color:var(--bad)">ناقص ${money(p.short)}. البنود دي مستنية فلوس:</div>${envs(p.waitingEnvelopes)}` : ''}
       <div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">${p.covered.length ? `<button class="btn primary sm" data-a="distribute" data-m="covered">وزّعت ${money(p.take)}</button>` : ''}
+      <button class="btn sm ghost" data-a="wed-copy">نسخ للواتس</button>
       ${p.waiting.length ? `<button class="btn sm" data-a="distribute" data-m="all">وزّعت الكل وكمّلت ${money(p.short)} من جيبي</button>` : ''}</div></div>`;
   }
   function charityFile() {
     const x = E.ledgerSummary(S), L = (S.charity.ledger || []).slice().reverse().slice(0, 40), todo = S.charity.todo || [];
-    const kindTxt = e => e.kind === 'in' ? 'وصل' : e.kind === 'out' ? (e.status === 'done' ? 'اتوزع' : 'للأربعاء') + ' · ' + esc(e.list || e.cat) : (e.sign < 0 ? 'عليّا لـ ' : 'ليّا من ') + esc(e.acc || '—') + (e.settled ? ' · اتسوّى' : '');
+    const kindTxt = e => e.kind === 'in' ? 'وصل' : e.kind === 'out' ? (e.urgent ? 'عاجل' : e.status === 'done' ? 'اتوزع' : 'للأربعاء') + ' · ' + esc(e.list || e.cat) : (e.sign < 0 ? 'عليّا لـ ' : 'ليّا من ') + esc(e.acc || '—') + (e.settled ? ' · اتسوّى' : '');
     return `<div class="card"><h2>الأهداف</h2><ul class="list">${todo.map(t => `<li><label style="flex:1"><input type="checkbox" data-a="ctodo-chk" data-id="${t.id}" ${t.done ? 'checked' : ''}> ${esc(t.title)}</label><button class="btn sm ghost danger" data-a="ctodo-del" data-id="${t.id}">✕</button></li>`).join('') || '<li class="empty">لا أهداف.</li>'}</ul>
-        <form class="row" data-form="q-ctodo" style="margin-top:6px"><input type="text" name="title" placeholder="هدف جديد" required style="flex:1"><button class="btn sm">إضافة</button></form>${listsBox()}</div>
+        <form class="row" data-form="q-ctodo" style="margin-top:6px"><input type="text" name="title" placeholder="هدف جديد" required style="flex:1"><button class="btn sm">إضافة</button></form>${listsBox()}${urgentBox()}</div>
       <div class="card"><h2>الحسابات</h2><div class="small" style="display:grid;gap:4px"><div>وصل لي: <strong>${money(x.inTotal)}</strong> · اتوزع: <strong>${money(x.outDone)}</strong></div><div>معايا دلوقتي: <strong>${money(x.onHand)}</strong></div>${accLines()}</div>
         <div class="chips" style="margin-top:8px">${QUICK.filter(q => q[2] === 'خيري').map(([k, l]) => `<button data-a="quick" data-k="${k}">＋ ${l}</button>`).join('')}</div>
         ${x.pendingTotal ? wedList() : '<div class="small muted" style="margin-top:8px">قائمة الأربعاء فاضية.</div>'}</div>
@@ -2159,6 +2198,8 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       case 'distribute': if (confirm(t.dataset.m === 'all' ? 'تعلّم كل القائمة اتوزعت، والناقص يتسجل ليك؟' : 'تعلّم البنود اللي اتغطت إنها اتوزعت؟')) { E.distribute(S, today(), t.dataset.m); save(); render(); toast('اتسجل التوزيع'); } break;
       case 'lg-del': if (confirm('حذف الحركة دي؟')) { S.charity.ledger = S.charity.ledger.filter(y => y.id !== t.dataset.id); save(); render(); } break;
       case 'rs-del': if (confirm('حذف العمل ده؟')) { S.work2.research = S.work2.research.filter(y => y.id !== t.dataset.id); save(); render(); } break;
+      case 'wed-copy': copyText(wedText()); break;
+      case 'urg-close': { const x = S.charity.ledger.find(y => y.id === t.dataset.id); x.coveredBy = 'closed'; save(); render(); break; }
       case 'pr-settle': { const x = S.charity.ledger.find(y => y.id === t.dataset.id); x.settled = today(); save(); render(); toast(x.sign > 0 ? 'اتسجل إنك خدتهم' : 'اتسجل إنك رجّعتهم'); break; }
       case 'sl-del': if (confirm('حذف البيعة دي؟')) { S.work2.sales = S.work2.sales.filter(y => y.id !== t.dataset.id); save(); render(); } break;
       case 'dv-done': S.work2.devices = S.work2.devices.filter(y => y.id !== t.dataset.id); save(); render(); toast('اتشال، ومكانه الشيت'); break;
@@ -2217,8 +2258,9 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       if (f.dataset.form === 'case-add') S.charity.cases.push({ name: v.name, need: v.need, date: today() });
       if (f.dataset.form === 'k-add') S.knowledge.items.push({ id: E.uid('k'), track: f.dataset.track, title: v.title, status: 'todo', when: '', prep: '', steps: [], note: '' });
       if (f.dataset.form === 'k-step-add') S.knowledge.items.find(x => x.id === f.dataset.id).steps.push({ t: v.t, done: false });
-      if (f.dataset.form === 'q-paste') { const r = E.addBatches(S, E.parseBatches(v.txt, +today().slice(0, 4)), { received: v.received === 'on', distributed: v.done === 'on' }); closeModal(); save(); render(); toast(r.added ? `اتسجل ${E.ar(r.added)} دفعة${r.skipped ? ` · ${E.ar(r.skipped)} كانت متسجلة` : ''}` : (r.skipped ? 'الدفعات دي متسجلة قبل كده' : 'ملقتش دفعات')); return; }
+      if (f.dataset.form === 'q-paste') { const r = E.addBatches(S, E.matchUrgent(S, E.parseBatches(v.txt, +today().slice(0, 4))), { received: v.received === 'on', distributed: v.done === 'on' }); closeModal(); save(); render(); toast(r.added ? `اتسجل ${E.ar(r.added)} دفعة${r.urgent ? ` · ${E.ar(r.urgent)} بند كان اتصرف عاجل` : ''}${r.skipped ? ` · ${E.ar(r.skipped)} كانت متسجلة` : ''}` : (r.skipped ? 'الدفعات دي متسجلة قبل كده' : 'ملقتش دفعات')); return; }
       if (f.dataset.form === 'lastlist' && +v.n) { S.charity.lastList = Object.assign(S.charity.lastList || {}, { [f.dataset.c]: +v.n }); }
+      if (f.dataset.form === 'q-urgent') E.addUrgent(S, { date: v.date, amount: +v.amount, cat: v.cat, note: v.note });
       if (f.dataset.form === 'q-in') E.addLedger(S, { date: v.date, kind: 'in', amount: v.amount, note: v.note });
       if (f.dataset.form === 'q-out') E.addLedger(S, { date: v.date, kind: 'out', amount: v.amount, cat: v.cat, note: v.note });
       if (f.dataset.form === 'q-personal') E.addLedger(S, { date: v.date, kind: 'personal', amount: v.amount, sign: v.sign, note: v.note }).acc = (v.acc || '').trim();
