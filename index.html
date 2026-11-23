@@ -235,6 +235,7 @@ ol.price{margin:0;padding-inline-start:20px;display:grid;gap:6px;font-size:14px}
 @media (max-width:760px){ .nav{grid-template-columns:repeat(6,1fr)!important} .nav a{font-size:10.5px}
   .calw{grid-template-columns:1fr} .calw .cd{min-height:0} .calm .cm{min-height:54px} .calm .cm i{display:none} }
 .calm .cnt{display:none} @media (max-width:760px){ .calm .cnt{display:inline-block;align-self:flex-start;font-size:10.5px;background:var(--accent);color:#fff;border-radius:99px;padding:0 6px} }
+.tag.linkish{cursor:pointer;font-family:inherit}
 
 </style>
 </head>
@@ -257,7 +258,7 @@ ol.price{margin:0;padding-inline-start:20px;display:grid;gap:6px;font-size:14px}
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1738';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1752';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1752,7 +1753,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     let total = 0, done = 0;
     for (const b of plan.blocks) if (b.instance && ['task', 'quran', 'work', 'event'].includes(b.type)) { const m = b.endMin - b.startMin; total += m; const st = S.taskStatus[b.instance] || {}; done += st.done ? m : Math.min(m, st.minutes || 0); }
     const d = plan.day || today();
-    for (const b of plan.blocks) if (!b.instance && b.type === 'event' && b.eventId) { const es = S.taskStatus['ev:' + b.eventId + '@' + d] || {}; if (es.cancel) continue; const m = b.endMin - b.startMin; total += m; if (es.done) done += m; }
+    for (const b of plan.blocks) if (!b.instance && b.type === 'event' && b.eventId) { const es = S.taskStatus['ev:' + b.eventId + '@' + d] || {}; if (es.cancel && es.cancel !== 'lazy') continue; const m = b.endMin - b.startMin; total += m; if (es.done) done += m; }
     for (const l of E.extraDone(S, d)) { total += l.minutes; done += l.minutes; }
     return { pct: total ? Math.round(done / total * 100) : 0, done, total };
   }
@@ -2197,6 +2198,14 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   function extraRow(l) {
     return `<div class="blk done" style="--c:${areaColor(l.area)}"><span class="tm">${l.start ? l.start + '–' + l.end : D(l.minutes)}</span><span><span class="t">${esc(l.title || 'نشاط')}</span> <span class="tag">من برّه الخطة</span></span><span class="act row"><span class="tag hard">تم ✓</span><button class="btn sm ghost danger" data-a="log-del" data-id="${l.id}" aria-label="حذف">✕</button></span></div>`;
   }
+  /** An appointment: تم, or اتلغى → بعذر (someone else cancelled; left out of the progress) / بدون عذر (counts as not done). Tap the tag to undo. */
+  function evAct(k, es, doneBtn) {
+    const K = esc(k), undo = `data-a="ev-st" data-k="${K}" data-v="clear" title="رجوع"`;
+    if (es.done) return `<button class="tag hard linkish" ${undo}>تم ✓</button>`;
+    if (es.cancel) return es.cancel === 'lazy' ? `<button class="tag bad linkish" ${undo}>اتلغى بدون عذر</button>` : `<button class="tag linkish" ${undo}>اتلغى بعذر</button>`;
+    if (es.asking) return `<span class="act row"><span class="small muted">اتلغى:</span><button class="btn sm" data-a="ev-st" data-k="${K}" data-v="excused">بعذر</button><button class="btn sm ghost danger" data-a="ev-st" data-k="${K}" data-v="lazy">بدون عذر</button><button class="btn sm ghost" ${undo}>↩</button></span>`;
+    return `<span class="act row">${doneBtn}<button class="btn sm ghost" data-a="ev-st" data-k="${K}" data-v="ask">اتلغى</button></span>`;
+  }
   function todayRow(b, d, n) {
     const st = blockState(b), past = b.endMin <= n, now = b.startMin <= n && b.endMin > n;
     const missed = b.instance && (S.taskStatus[b.instance] || {}).missed;
@@ -2207,8 +2216,8 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     let title = esc(b.title), act2 = act;
     if (b.type === 'event' && b.kind === 'fixed' && b.eventId && !q) { // appointment: done / cancelled, and its goal under it
       const k = 'ev:' + b.eventId + '@' + d, es = S.taskStatus[k] || {};
-      const ls = E.lessonFor(S, b.title), no = ls ? 'ما تمّش' : 'اتلغى';
-      act2 = es.done ? '<span class="tag hard">تم</span>' : es.cancel ? `<span class="tag bad">${no}</span>` : `<span class="act row"><button class="btn sm" data-a="ev-st" data-k="${esc(k)}" data-v="done">تم ✓</button><button class="btn sm ghost" data-a="ev-st" data-k="${esc(k)}" data-v="cancel">${no}</button></span>`;
+      const ls = E.lessonFor(S, b.title);
+      act2 = evAct(k, es, `<button class="btn sm" data-a="ev-st" data-k="${esc(k)}" data-v="done">تم ✓</button>`);
       if (ls) title += `<div class="small"><label><input type="checkbox" data-a="ev-prep" data-k="${esc(k)}" ${es.prep ? 'checked' : ''}> حضّرت</label>${es.prep ? '' : ` <span class="muted">(${esc(ls.prep)})</span>`}</div>`;
       const lg = ls ? [] : E.linkedGoals(S, b.title); // a lesson shows one «حضّرت» line instead of its prep goals
       if (lg.length) title += `<div class="small muted">${lg.map(g => { const st = goalWeekStats(g); return '↳ ' + esc(g.title) + (st.target ? ` (الأسبوع ده ${E.ar(st.done)}/${E.ar(st.target)})` : ''); }).join('<br>')}</div>`;
@@ -2219,7 +2228,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     } else if (b.type === 'event' && /تسمع|تسميع/.test(b.title) && S.qplan && S.qplan.prog) {
       const k = 'ev:' + b.eventId + '@' + d, es = S.taskStatus[k] || {}, due = E.ismailDue(S), last = S.qplan.ismail[S.qplan.ismail.length - 1];
       title = `${esc(b.title)}<div class="small muted">${es.done && last && last.date === d ? 'سمّعت: ' + esc(E.quartersText(last.quarters)) : due.length ? 'تسمّع: ' + esc(E.quartersText(due)) : 'لسه مفيش جديد خلص من القسم ٣'}</div>`;
-      act2 = es.done ? '<span class="tag hard">تم</span>' : es.cancel ? '<span class="tag bad">ما تمّش</span>' : `<span class="act row"><button class="btn sm" data-a="ismail-done" data-k="${esc(k)}">تم ✓</button><button class="btn sm ghost" data-a="ev-st" data-k="${esc(k)}" data-v="cancel">ما تمّش</button></span>`;
+      act2 = evAct(k, es, `<button class="btn sm" data-a="ismail-done" data-k="${esc(k)}">تم ✓</button>`);
     } else if (q && b.type === 'quran') {
       const e = q.entry, cur = e.a && e.a === e.b ? e.a : null;
       title = `مراجعة القرآن <span class="tag">يوم ${E.ar(q.k)} من ${E.ar(q.n)}</span><div class="small muted">ق١: ${esc(q.aText)}${q.restText ? ' · ق٢: ' + esc(q.restText) : ''}<br>في الصلوات: ${q.inPrayer.map(x => `${x.when} ${esc(x.text.replace(/ \(.*$/, ''))}`).join('، ')}${q.weakDue.length ? `<br><span style="color:var(--bad)">أعد الضعيف: ${q.weakDue.map(w => esc(w.text)).join('، ')}</span>` : ''}${q.missed.length ? `<br><span style="color:var(--warn)">فائت ${E.ar(q.missed.length)} أيام، مكانه ليلة الأربعاء أو مواصلات الاثنين</span>` : ''}</div>`;
@@ -2840,7 +2849,10 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       case 'rep-txt': download(`life-os-report-${today()}.txt`, window.__lastReport.text); break;
       case 'rep-csv': { const rows = [['التاريخ', 'من', 'إلى', 'الدقائق', 'المجال', 'الفئة', 'الوصف', 'ملاحظة']].concat(S.logs.map(l => [l.date, l.start || '', l.end || '', l.minutes, E.AREAS[l.area].name, E.CATS[l.category], l.title || '', l.note || ''])); download(`life-os-logs-${today()}.csv`, '﻿' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n'), 'text/csv;charset=utf-8'); break; }
       case 'menu': $('.side').classList.toggle('open'); break;
-      case 'ev-st': { const k = t.dataset.k; S.taskStatus[k] = Object.assign(S.taskStatus[k] || {}, { [t.dataset.v]: true }); save(); render(); break; }
+      case 'ev-st': { const k = t.dataset.k, v = t.dataset.v, es = S.taskStatus[k] = S.taskStatus[k] || {};
+        if (v === 'clear') { delete es.done; delete es.cancel; delete es.asking; } else if (v === 'ask') es.asking = true;
+        else if (v === 'excused' || v === 'lazy') { es.cancel = v; delete es.asking; delete es.done; } else { es[v] = true; delete es.asking; }
+        save(); render(); break; }
       case 'gsync': syncCalendarLive(); break;
       case 'quick': modal(quickForm(t.dataset.k), t.dataset.k === 'paste' ? pastePreview : t.dataset.k === 'sale' ? saleForm : null); break;
       case 'ctodo': { const x = S.charity.todo.find(y => y.id === t.dataset.id); x.done = true; save(); render(); toast('تم ✓'); break; }
