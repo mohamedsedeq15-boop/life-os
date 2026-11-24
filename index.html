@@ -168,6 +168,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 .qc-btns{display:flex;gap:6px} .qc-btns .btn{flex:1;justify-content:center}
 .qc .btn.ghost{border-color:var(--line2)}
 .qc-did{color:var(--ok);display:flex;flex-direction:column;gap:2px}
+.qc-next{display:flex;flex-direction:column;gap:3px;border-top:1px dashed var(--line,rgba(127,127,127,.35));padding-top:6px}
 .linkbtn{background:none;border:0;padding:0;color:var(--muted);text-decoration:underline;cursor:pointer;font-size:12px;align-self:flex-start}
 .qc-foot{font-size:11.5px}
 @media (max-width:760px){ .q-cols{gap:6px} .qc{padding:8px 7px} .qc-amt{font-size:13.5px} .qc-btns{flex-direction:column} .qc .btn{white-space:normal;font-size:12.5px;padding:5px 6px} }
@@ -309,7 +310,7 @@ fieldset.rng{border:1px solid var(--line);border-radius:10px;padding:6px 10px 10
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1124-0051';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1124-1012';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1311,7 +1312,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       const cur = finished ? null : unit(done);
       const forDay = cur ? addDays(q.start, cur.u) : null; // the calendar day this amount belonged to
       return { key, name, sub, done, behind, ahead: Math.max(0, done - expected - 1), cur, forDay, doneToday: doneToday.map(unit), finished,
-        todayDone: done > expected, skipped: !!((q.skip || {})[day] || {})[key], cycleDay: key === 'c' ? null : (done % q.cycle) + 1,
+        todayDone: done > expected, newCycle: key !== 'c' && !!cur && cur.u > 0 && cur.u % q.cycle === 0, skipped: !!((q.skip || {})[day] || {})[key], cycleDay: key === 'c' ? null : (done % q.cycle) + 1,
         left: key === 'c' ? Math.max(0, cTotal - done) : null };
     });
     const late = parts.filter(p => p.behind > 0);
@@ -2805,13 +2806,16 @@ globalThis.QM_DATA = {"q":[[1,1,1,"بِسۡمِ ٱللَّهِ ٱلرَّحۡم�
       const head = `<div class="qc-h"><strong>${p.name}</strong><span class="small muted">${p.sub}</span>${p.todayDone ? '' : `<span class="qc-when">🕐 ${when(p.key)}</span>`}</div>`;
       if (p.finished) return `<div class="qc is-done">${head}<div class="qc-amt">خلص الجديد لحد يس 🎉</div></div>`;
       const st = p.todayDone ? 'done' : p.behind ? 'late' : p.skipped ? 'skip' : 'open';
-      const meta = p.todayDone ? `<span class="qc-tag ok">✓ تم النهارده</span>` : p.behind ? `<span class="qc-tag bad">متأخر ${daysTxt(p.behind)}: ده مقدار ${fmtDate(p.forDay)}</span>` : p.skipped ? '<span class="qc-tag">اترحل لبكرة</span>' : `<span class="qc-tag">مقدار النهارده${p.cycleDay ? ` · يوم ${E.ar(p.cycleDay)} من ${E.ar(x.cycle)}` : ''}</span>`;
+      const meta = p.todayDone ? `<span class="qc-tag ok">✓ تم النهارده</span>` : p.behind ? `<span class="qc-tag bad">متأخر ${daysTxt(p.behind)}: ده مقدار ${fmtDate(p.forDay)}</span>` : p.skipped ? '<span class="qc-tag">اترحل لبكرة</span>' : `${p.newCycle ? '<span class="qc-tag ok">🔁 دايرة جديدة من الأول</span>' : ''}<span class="qc-tag">مقدار النهارده${p.cycleDay ? ` · يوم ${E.ar(p.cycleDay)} من ${E.ar(x.cycle)}` : ''}</span>`;
       const lastH = S.qplan.hist.filter(h => h.part === p.key && h.date === d).slice(-1)[0];
       const lv = lastH ? `<div class="qc-lv">${Object.entries(LV).map(([k, v]) => `<button class="${lastH.level === k ? 'on lv-' + k : ''}" data-a="q-level" data-k="${p.key}" data-v="${k}">${v}</button>`).join('')}</div>` : '';
-      const did = p.doneToday.length ? `<div class="qc-did small">${p.doneToday.map(u => '✓ ' + esc(u.text)).join('<br>')}<button class="linkbtn" data-a="q-undo" data-k="${p.key}">تراجع</button></div>${lv}` : '';
-      const btns = p.todayDone ? `<button class="btn sm ghost" data-a="q-tick" data-k="${p.key}">＋ زوّد: ${esc(p.cur.text)}</button>`
+      const did = p.doneToday.length ? `<div class="qc-did small">${(p.doneToday.length > 2 ? [`✓ ${E.ar(p.doneToday.length)} مقادير النهارده، آخرها:`, '✓ ' + esc(p.doneToday[p.doneToday.length - 1].text)] : p.doneToday.map(u => '✓ ' + esc(u.text))).join('<br>')}<button class="linkbtn" data-a="q-undo" data-k="${p.key}">تراجع</button></div>${lv}` : '';
+      // done for today: the next amount shows straight away, named by its own day; ticking it takes from the days ahead
+      const cyc = p.cycleDay ? ` · يوم ${E.ar(p.cycleDay)} من ${E.ar(x.cycle)}` : '';
+      const next = p.todayDone ? `<div class="qc-next">${p.newCycle ? '<span class="qc-tag ok">🔁 الدايرة خلصت، دي دايرة جديدة من الأول</span>' : ''}<span class="qc-tag">اللي بعده: مقدار ${fmtDate(p.forDay)}${cyc}</span><div class="qc-amt">${esc(p.cur.text)}</div></div>` : '';
+      const btns = p.todayDone ? `<div class="qc-btns"><button class="btn primary" data-a="q-tick" data-k="${p.key}">تم ✓</button></div>`
         : `<div class="qc-btns"><button class="btn primary" data-a="q-tick" data-k="${p.key}">تم ✓</button>${p.skipped || p.behind ? '' : `<button class="btn ghost" data-a="q-skip" data-k="${p.key}">لأ</button>`}</div>`;
-      return `<div class="qc st-${st}">${head}${meta}${p.todayDone ? '' : `<div class="qc-amt">${esc(p.cur.text)}</div>`}${did}${btns}${p.left != null ? `<div class="small muted qc-foot">باقي ${E.ar(p.left)} ربع لحد يس</div>` : ''}</div>`;
+      return `<div class="qc st-${st}">${head}${meta}${p.todayDone ? '' : `<div class="qc-amt">${esc(p.cur.text)}</div>`}${did}${next}${btns}${p.left != null ? `<div class="small muted qc-foot">باقي ${E.ar(p.left)} ربع لحد يس</div>` : ''}</div>`;
     };
     return `<div class="card quran" data-s="worship" style="margin-bottom:14px">
       <div class="q-top"><div class="q-ring ${x.onTrack ? 'ok' : 'bad'}"><strong>${E.ar(x.daysLeft)}</strong><span>يوم</span></div>
