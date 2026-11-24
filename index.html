@@ -268,7 +268,7 @@ fieldset.rng{border:1px solid var(--line);border-radius:10px;padding:6px 10px 10
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1124-0026';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1124-0051';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -2345,7 +2345,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     </div>
 
     <div style="margin-top:14px"></div>${quranElement(d)}${projectsToday()}
-    <div style="margin-top:14px"></div>${hubCard(d)}${sleepCard(d)}`;
+    <div style="margin-top:14px"></div>${sleepCard(d)}`;
   };
   function extraRow(l) {
     return `<div class="blk done" style="--c:${areaColor(l.area)}"><span class="tm">${l.start ? l.start + '–' + l.end : D(l.minutes)}</span><span><span class="t">${esc(l.title || 'نشاط')}</span> <span class="tag">من برّه الخطة</span></span><span class="act row"><span class="tag hard">تم ✓</span><button class="btn sm ghost danger" data-a="log-del" data-id="${l.id}" aria-label="حذف">✕</button></span></div>`;
@@ -2443,7 +2443,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   };
 
   V.files = () => {
-    return `<div class="card" style="margin-bottom:10px"><div class="small">الملفات أرشيف للرجوع. التسجيل والتعليم كله من صفحة <a href="#today">اليوم</a>.</div></div><div class="row noprint" style="margin-bottom:10px"><a class="btn" href="#goals2">أرشيف الأهداف</a><a class="btn" href="#report">تقرير الأسبوع</a></div><div class="grid g3">${E.FILES.map(f => { const gs = (S.bigGoals || []).filter(g => g.file === f.id), m = gs.filter(g => g.status === 'month').length;
+    return `<div class="card" style="margin-bottom:10px"><div class="small">التعليم على المهام من صفحة <a href="#today">اليوم</a>. التسجيل السريع (الخيري والشغل) جوه ملفه، أو من زرار «المساعد».</div></div><div class="row noprint" style="margin-bottom:10px"><a class="btn" href="#goals2">أرشيف الأهداف</a><a class="btn" href="#report">تقرير الأسبوع</a></div><div class="grid g3">${E.FILES.map(f => { const gs = (S.bigGoals || []).filter(g => g.file === f.id), m = gs.filter(g => g.status === 'month').length;
       const [ws, we] = E.periodRange('week', today()); const mins = S.logs.filter(l => f.areas.includes(l.area) && l.date >= ws && l.date <= we).reduce((a, l) => a + l.minutes, 0);
       return `<a class="card" data-s="${f.id}" href="#file?f=${f.id}" style="text-decoration:none;color:inherit"><h2>${f.name}</h2><div class="small muted">${gs.length} أهداف، منها ${m} هذا الشهر</div><div class="small">وقت هذا الأسبوع: ${D(mins)}</div></a>`; }).join('')}
       <a class="card" href="#ideas" style="text-decoration:none;color:inherit;border-top:4px solid var(--c-knowledge)"><h2>الأفكار</h2><div class="small muted">${E.ar((S.ideas || []).length)} فكرة: عبادة، حياة، عمل، علم.</div></a>
@@ -2601,22 +2601,6 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     if (k === 'research') { const sv = (((S.work2 || {}).pricing || {}).refs || []).map(r => r.service);
       return `<h2>عمل بحثي</h2><form class="form" data-form="q-research"><label class="f">اسم العمل<input type="text" name="title" required></label><div class="row"><label class="f" style="flex:2">نوع الخدمة<input type="text" name="service" list="svc-l" placeholder="مثلاً: المراجعة العلمية"><datalist id="svc-l">${sv.map(x => `<option value="${esc(x)}">`).join('')}</datalist></label><label class="f" style="flex:1">الكمية<input type="text" name="qty" placeholder="٢٤٠ صفحة"></label></div>${amt}<div class="small muted">كل عمل بيتسجل هنا بيبقى مرجع للتسعير بعد كده.</div><button class="btn primary">سجّل</button></form>`; }
     return '';
-  }
-  function hubCard(d) {
-    const x = E.ledgerSummary(S), W = S.work2 || { devices: [], research: [] }, todo = (S.charity.todo || []).filter(t => !t.done);
-    const unpaid = W.research.filter(r => !r.received);
-    const wed = [2, 3].includes(E.weekday(d)) && x.pendingTotal > 0;
-    const chips = grp => QUICK.filter(q => q[2] === grp).map(([k, l]) => `<button data-a="quick" data-k="${k}">＋ ${l}</button>`).join('');
-    return `<div class="card" style="margin-bottom:14px"><h2>تسجيل سريع<span class="sp"></span><button class="btn sm ghost" data-a="gsync" title="${S.sync.lastSync.calendar ? 'آخر مزامنة ' + fmtTs(S.sync.lastSync.calendar) : ''}">↻ التقويم</button></h2>
-      <div class="hub">
-        <div class="hub-g" data-s="charity"><div class="hub-h"><a href="#file?f=charity">الخيري</a></div><div class="chips">${chips('خيري')}</div>
-          <a class="kpi" href="#file?f=charity"><span>معاك <strong>${money(x.onHand)}</strong></span><span>قائمة الأربعاء <strong>${money(x.pendingTotal)}</strong></span>${x.pendingTotal ? (x.gap < 0 ? `<span style="color:var(--bad)">ناقص ${money(-x.gap)}</span>` : `<span>يفضل ${money(x.gap)}</span>`) : ''}</a>
-          ${todo.length ? `<div class="chips todo">${todo.map(t => `<button data-a="ctodo" data-id="${t.id}" title="علّمه تم">☐ ${esc(t.title)}</button>`).join('')}</div>` : ''}</div>
-        <div class="hub-g" data-s="work"><div class="hub-h"><a href="#file?f=work">الشغل</a></div><div class="chips">${chips('شغل')}</div>
-          <a class="kpi" href="#file?f=work"><span>ربح الشهر <strong>${money((W.sales || []).filter(y => y.date.slice(0, 7) === d.slice(0, 7)).reduce((a, y) => a + y.profit, 0))}</strong></span>${unpaid.length ? `<span>${E.ar(unpaid.length)} عمل بحثي حسابه لسه (${money(unpaid.reduce((a, r) => a + r.amount, 0))})</span>` : ''}</a></div>
-      </div>
-      ${E.openUrgent(S).length ? `<a class="small" href="#file?f=charity" style="display:block;margin-top:6px;color:var(--warn,#d97706)">⚠ ${E.ar(E.openUrgent(S).length)} حالة عاجلة اتصرفت ومستنية الرسالة</a>` : ''}
-      ${wed ? wedList() : ''}</div>`;
   }
   /** Open «ليّا / عليّا» items: each says with which account and for what; «خدتهم / رجّعتهم» settles it (kept in the history). */
   function urgentBox() {
