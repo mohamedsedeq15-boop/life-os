@@ -262,7 +262,8 @@ fieldset.rng{border:1px solid var(--line);border-radius:10px;padding:6px 10px 10
 .bz .bz-more > summary { cursor: pointer; }
 .bz .card { box-shadow: none; border: 0; padding: 0; margin-top: 6px; background: transparent; }
 .bz li.bz-done > span { text-decoration: line-through; opacity: .6; }
-.bz .bzg { padding: 10px 0; }
+.bz ul.list > li.bzg { padding: 10px 12px; margin: 10px 0; border: 1px solid var(--line); border-inline-start: 5px solid var(--gc); border-radius: 10px; background: color-mix(in srgb, var(--gc) 6%, transparent); }
+.bz ul.list > li.bzg > .row strong { color: var(--gc); }
 .bz .bz-steps { list-style: none; margin: 6px 0 0; padding: 0 14px 0 0; display: grid; gap: 4px; }
 .bz .bz-steps li { display: flex; align-items: center; gap: 6px; }
 .bz .bz-steps li.bz-done span { text-decoration: line-through; opacity: .6; }
@@ -360,7 +361,7 @@ fieldset.rng{border:1px solid var(--line);border-radius:10px;padding:6px 10px 10
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1124-1725';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1124-1810';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -3430,9 +3431,10 @@ globalThis.QM_DATA = {"q":[[1,1,1,"بِسۡمِ ٱللَّهِ ٱلرَّحۡم�
     return `<a class="card" data-s="work" href="#file?f=work" style="text-decoration:none;color:inherit"><h2>الأعمال</h2><div class="small muted">الشخصية ${E.ar(n('work'))} مجالات · الخيرية ${E.ar(n('charity'))} مجالات</div><div class="small">${E.ar(gs.length)} هدف تطوير، منها ${E.ar(m)} هذا الشهر</div></a>`;
   }
   /** One goal = its title, then its steps with a tick each, and a box to add a step. */
-  function bizGoalRow(g) {
+  const BZ_HUES = ['#2f6a9e', '#2e7d62', '#a36b1e', '#7b62a8', '#b5577a', '#3c9aa5'];
+  function bizGoalRow(g, i) {
     const S2 = g.steps || [], d = S2.filter(x => x.done).length;
-    return `<li class="bzg" style="display:block"><div class="row"><strong style="flex:1">${esc(g.title)}</strong>${S2.length ? `<span class="small muted">${E.ar(d)}/${E.ar(S2.length)}</span>` : ''}<button class="btn sm ghost danger" data-a="g-del" data-id="${g.id}" aria-label="حذف الهدف">✕</button></div>
+    return `<li class="bzg" style="display:block;--gc:${BZ_HUES[(i || 0) % BZ_HUES.length]}"><div class="row"><strong style="flex:1">${esc(g.title)}</strong>${S2.length ? `<span class="small muted">${E.ar(d)}/${E.ar(S2.length)}</span>` : ''}<button class="btn sm ghost danger" data-a="g-del" data-id="${g.id}" aria-label="حذف الهدف">✕</button></div>
       <ul class="bz-steps">${S2.map(x => `<li class="${x.done ? 'bz-done' : ''}"><label style="flex:1"><input type="checkbox" data-a="gs-chk" data-g="${g.id}" data-id="${x.id}" ${x.done ? 'checked' : ''}> <span>${esc(x.title)}</span></label><button class="linkbtn" data-a="gs-del" data-g="${g.id}" data-id="${x.id}" aria-label="حذف الخطوة">✕</button></li>`).join('')}</ul>
       <form class="row" data-form="gs-add" data-g="${g.id}" style="margin-top:4px"><input type="text" name="title" placeholder="＋ خطوة" required style="flex:1"><button class="btn sm ghost">إضافة</button></form></li>`;
   }
@@ -3453,7 +3455,7 @@ globalThis.QM_DATA = {"q":[[1,1,1,"بِسۡمِ ٱللَّهِ ٱلرَّحۡم�
       <div class="row noprint" style="margin-bottom:10px;gap:6px;flex-wrap:wrap">${Object.entries(E.BIZ_PARTS).map(([k, l]) => `<a class="btn ${k === part ? 'primary' : ''}" href="#file?f=${k}">${l}</a>`).join('')}</div>
       <div class="small muted" style="margin-bottom:10px">هدف، وتحته خطوات تعلّم عليها. الحسابات في الشيتات، والمهام في مهام جوجل.</div>
       <div class="grid g2">${items.map(bizCard).join('')}
-      ${gen.length ? `<div class="card" data-s="${part}"><h2>أهداف عامة</h2><ul class="list">${gen.map(bizGoalRow).join('')}</ul></div>` : ''}
+      ${gen.length ? `<div class="card bz" data-s="${part}"><h2>أهداف عامة</h2><ul class="list">${gen.map(bizGoalRow).join('')}</ul></div>` : ''}
       <div class="card" data-s="${part}"><h2>＋ مجال جديد</h2><form class="row" data-form="bz-add" data-part="${part}"><input type="text" name="title" placeholder="اسم المجال" required style="flex:1"><button class="btn sm">إضافة</button></form></div></div>`;
   }
   // ------------------------------------------------------------- v7: teaching (paid): students, sessions, 4-session cycles
