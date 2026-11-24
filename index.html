@@ -290,6 +290,16 @@ fieldset.rng{border:1px solid var(--line);border-radius:10px;padding:6px 10px 10
 .qm-man{display:flex;gap:6px;margin-top:6px}
 .qm-man select{flex:2} .qm-man input{flex:1;min-width:80px}
 @media (min-width:900px){.qm-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.qm-s[open]{grid-column:1/-1}}
+.qm-lv{display:inline-flex;gap:3px;margin-inline-start:auto}
+.qm-lv button{font:inherit;font-size:12px;padding:1px 8px;border-radius:99px;border:1px solid var(--line2);background:transparent;color:var(--muted);cursor:pointer;line-height:1.7}
+.qm-lv button.on{color:#fff;border-color:transparent;font-weight:600}
+.qm-lv .lv-good.on{background:var(--ok)} .qm-lv .lv-mid.on{background:var(--warn)} .qm-lv .lv-weak.on{background:var(--bad)}
+.qm-lvf button.lv-good.on{background:var(--ok);color:#fff;border-color:transparent} .qm-lvf button.lv-mid.on{background:var(--warn);color:#fff;border-color:transparent} .qm-lvf button.lv-weak.on{background:var(--bad);color:#fff;border-color:transparent}
+.qm-lvf button.on .muted{color:inherit;opacity:.8}
+.qm-st{padding:8px 10px;border-radius:10px;border:1px solid var(--line);border-inline-start:4px solid var(--line2);margin-top:6px}
+.qm-st.lv-good{border-inline-start-color:var(--ok)} .qm-st.lv-mid{border-inline-start-color:var(--warn)} .qm-st.lv-weak{border-inline-start-color:var(--bad)}
+.qm-st.lv-good b{color:var(--ok)} .qm-st.lv-mid b{color:var(--warn)} .qm-st.lv-weak b{color:var(--bad)}
+.qm-st-l{margin-top:4px;line-height:2}
 
 </style>
 </head>
@@ -312,7 +322,7 @@ fieldset.rng{border:1px solid var(--line);border-radius:10px;padding:6px 10px 10
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1124-1051';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1124-1059';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1939,7 +1949,18 @@ globalThis.QM_DATA = {"q":[[1,1,1,"بِسۡمِ ٱللَّهِ ٱلرَّحۡم�
   function mistakes(state) { return (state.qmistakes || []).map(m => Object.assign({ q: quarterAt(m.s, m.a) }, m)).sort((x, y) => key(x.s, x.a) - key(y.s, y.a) || (x.at < y.at ? -1 : 1)); }
   const countBy = (state, f) => { const c = {}; for (const m of mistakes(state)) { const k = f(m); c[k] = (c[k] || 0) + 1; } return c; };
 
-  const API = { Q, NAMES, AYAT, ORD, POS, ar, quarter, quarterAt, juzOf, hizbOf, surahSpan, spanText, juzName, where, norm, skel, setText, hasText, ayahText, findAyah, splitSpoken, wordDiff, addMistake, delMistake, mistakes, countBy };
+  // ------------------------------------------------------------ memorization level per surah (state.qlevels = { surahNo: 'good'|'mid'|'weak' })
+  const LEVELS = { good: 'جيد', mid: 'متوسط', weak: 'ضعيف' };
+  /** Pressing the level a surah already has clears it. */
+  function setLevel(state, s, lv) {
+    if (!(s >= 1 && s <= 114) || (lv && !LEVELS[lv])) throw new Error('level');
+    const L = state.qlevels = state.qlevels || {};
+    if (!lv || L[s] === lv) delete L[s]; else L[s] = lv; return L[s] || null;
+  }
+  const levelOf = (state, s) => (state.qlevels || {})[s] || null;
+  function levelCounts(state) { const c = { good: 0, mid: 0, weak: 0, none: 0 }; for (let s = 1; s <= 114; s++) c[levelOf(state, s) || 'none']++; return c; }
+
+  const API = { Q, NAMES, AYAT, ORD, POS, ar, quarter, quarterAt, juzOf, hizbOf, surahSpan, spanText, juzName, where, norm, skel, setText, hasText, ayahText, findAyah, splitSpoken, wordDiff, addMistake, delMistake, mistakes, countBy, LEVELS, setLevel, levelOf, levelCounts };
   g.QuranMap = API;
   if (typeof module !== 'undefined') module.exports = API;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1952,7 +1973,7 @@ globalThis.QM_DATA = {"q":[[1,1,1,"بِسۡمِ ٱللَّهِ ٱلرَّحۡم�
   const ar = M.ar, esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const L = () => window.__lifeos || {};
   const open = new Set(); // surahs left open across re-renders
-  let filter = '';
+  let filter = '', lvFilter = ''; // lvFilter: '' all, good|mid|weak, none
 
 
   // ------------------------------------------------------------ pieces
@@ -1971,16 +1992,28 @@ globalThis.QM_DATA = {"q":[[1,1,1,"بِسۡمِ ٱللَّهِ ٱلرَّحۡم�
           <div class="qm-meta">${r.pos} · ${esc(r.surah)} ${ar(r.a)} · ص ${ar(r.page)} · ${esc(r.appLabel)}${ms.length ? ` <span class="qm-bad">${ar(ms.length)} غلطة</span>` : ''}</div>
           ${inS.has(q) ? ms.map(m => mkHTML(m, false)).join('') : ''}</div></li>`; }).join('')}</ol></div>`).join('')}</div>`).join('');
   }
-  function matches(s) {
+  function matches(s, S) {
+    if (lvFilter && (M.levelOf(S, s) || 'none') !== lvFilter) return false;
     if (!filter) return true;
     const f = M.norm(filter).trim(); return String(s) === f.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)) || M.norm(M.NAMES[s - 1]).includes(f);
   }
 
+  const lvButtons = (S, s) => { const v = M.levelOf(S, s); return `<span class="qm-lv" role="group" aria-label="درجة الحفظ">${Object.entries(M.LEVELS).map(([k, l]) => `<button type="button" class="lv-${k} ${v === k ? 'on' : ''}" data-qm="lv" data-s="${s}" data-lv="${k}" aria-pressed="${v === k}">${l}</button>`).join('')}</span>`; };
+  const lvFilterHTML = S => { const c = M.levelCounts(S); return [['', 'الكل', 114], ['good', 'جيد', c.good], ['mid', 'متوسط', c.mid], ['weak', 'ضعيف', c.weak], ['none', 'لسه', c.none]].map(([k, l, n]) => `<button type="button" class="${k ? 'lv-' + k : ''} ${lvFilter === k ? 'on' : ''}" data-qm="lvf" data-lv="${k}">${l} <span class="muted">${ar(n)}</span></button>`).join(''); };
+  /** Under the map: the surahs grouped by the level you marked, so the weak get strengthened and the good kept up. */
+  function statsHTML(S) {
+    const by = { weak: [], mid: [], good: [] }; for (let s = 1; s <= 114; s++) { const v = M.levelOf(S, s); if (v) by[v].push(s); }
+    const n = by.weak.length + by.mid.length + by.good.length;
+    if (!n) return '<div class="small muted">علّم على السور (جيد / متوسط / ضعيف) وهتلاقي هنا السور متجمعة حسب درجتها.</div>';
+    const tip = { weak: 'قوّيها الأول', mid: 'راجعها أكتر', good: 'كررها عشان تفضل ثابتة' };
+    return `<div class="small muted" style="margin-bottom:6px">علّمت على ${ar(n)} سورة من ١١٤.</div>` + ['weak', 'mid', 'good'].map(k => `<div class="qm-st lv-${k}"><div class="qm-st-h"><b>${M.LEVELS[k]}</b> <span class="muted">${ar(by[k].length)} ${by[k].length === 1 ? 'سورة' : 'سور'}</span>${by[k].length ? `<span class="small muted"> · ${tip[k]}</span>` : ''}</div>
+      ${by[k].length ? `<div class="qm-st-l">${by[k].map(s => `<button type="button" class="linkbtn" data-qm="go" data-s="${s}">${esc(M.NAMES[s - 1])}</button>`).join('<span class="muted">،</span> ')}</div>` : '<div class="small muted">مفيش.</div>'}</div>`).join('');
+  }
   /** The two cards: the map, then the mistakes table. */
   function html(S) {
     const bySurah = M.countBy(S, m => m.s), all = M.mistakes(S);
     const list = M.NAMES.map((n, i) => { const s = i + 1, c = bySurah[s] || 0, o = open.has(s);
-      return `<details class="qm-s" data-qm-s="${s}" ${o ? 'open' : ''} ${matches(s) ? '' : 'hidden'}><summary><span class="qm-n">${ar(s)}</span><b>${esc(n)}</b>${c ? `<span class="qm-bad">${ar(c)} غلطة</span>` : ''}<span class="qm-sp">${esc(M.spanText(s))}</span></summary><div class="qm-body">${o ? surahBody(S, s) : ''}</div></details>`; }).join('');
+      return `<details class="qm-s" data-qm-s="${s}" ${o ? 'open' : ''} ${matches(s, S) ? '' : 'hidden'}><summary><span class="qm-n">${ar(s)}</span><b>${esc(n)}</b>${c ? `<span class="qm-bad">${ar(c)} غلطة</span>` : ''}${lvButtons(S, s)}<span class="qm-sp">${esc(M.spanText(s))}</span></summary><div class="qm-body">${o ? surahBody(S, s) : ''}</div></details>`; }).join('');
     let lastJ = 0;
     const mk = all.map(m => { const r = M.quarter(m.q), head = r.juz !== lastJ ? `<li class="qm-jt" style="border:0">${M.juzName(r.juz)}</li>` : ''; lastJ = r.juz;
       return head + `<li><div class="small"><b>${esc(M.NAMES[m.s - 1])} ${ar(m.a)}</b> <span class="muted">· الحزب ${ar(r.hizb)} · ${r.pos} · ${esc(r.appLabel)}</span></div>${m.ayah ? `<div class="qm-ay">${esc(m.ayah)}</div>` : ''}${mkHTML(m, true)}</li>`; }).join('');
@@ -1990,7 +2023,9 @@ globalThis.QM_DATA = {"q":[[1,1,1,"بِسۡمِ ٱللَّهِ ٱلرَّحۡم�
       <div class="card" data-s="worship" id="qm-map"><h2>خريطة المصحف<span class="sp"></span><span class="stat">٣٠ جزء · ٦٠ حزب · ٢٤٠ ربع</span></h2>
         <div class="small muted" style="margin-bottom:8px">دوس على السورة تشوف أجزاءها، وكل جزء حزبين، وكل حزب ٤ أرباع بأوائلها. الأرباع الباهتة من سورة تانية في نفس الجزء.</div>
         <div class="qm-tools"><input type="text" data-qm="filter" placeholder="دوّر على سورة (اسم أو رقم)" value="${esc(filter)}"></div>
-        <div class="qm-list">${list}</div></div>`;
+        <div class="chips qm-lvf" style="margin-bottom:8px">${lvFilterHTML(S)}</div>
+        <div class="qm-list">${list}</div>
+        <h2 style="margin-top:16px">إحصائية الحفظ</h2><div id="qm-stats">${statsHTML(S)}</div></div>`;
   }
 
   // ------------------------------------------------------------ the Quran text (only when finding an ayah)
@@ -2060,6 +2095,14 @@ globalThis.QM_DATA = {"q":[[1,1,1,"بِسۡمِ ٱللَّهِ ٱلرَّحۡم�
   document.addEventListener('click', e => {
     const t = e.target.closest('[data-qm]'); if (!t) return; const a = t.dataset.qm, { state: S, save, render, toast } = L();
     if (a === 'add') { e.preventDefault(); addDialog(); }
+    if (a === 'lv') { e.preventDefault(); e.stopPropagation(); const s = +t.dataset.s, v = M.setLevel(S, s, t.dataset.lv); save();
+      t.parentNode.querySelectorAll('button').forEach(b => { const on = b.dataset.lv === v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+      const f = document.querySelector('.qm-lvf'); if (f) f.innerHTML = lvFilterHTML(S); const st = document.getElementById('qm-stats'); if (st) st.innerHTML = statsHTML(S); return; }
+    if (a === 'go') { e.preventDefault(); const d = document.querySelector(`details[data-qm-s="${t.dataset.s}"]`); if (!d) return; lvFilter = ''; filter = '';
+      const inp = document.querySelector('[data-qm=filter]'); if (inp) inp.value = ''; const f = document.querySelector('.qm-lvf'); if (f) f.innerHTML = lvFilterHTML(S);
+      document.querySelectorAll('details[data-qm-s]').forEach(x => { x.hidden = false; }); d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    if (a === 'lvf') { e.preventDefault(); lvFilter = t.dataset.lv; const f = document.querySelector('.qm-lvf'); if (f) f.innerHTML = lvFilterHTML(S);
+      document.querySelectorAll('details[data-qm-s]').forEach(d => { d.hidden = !matches(+d.dataset.qmS, S); }); return; }
     if (a === 'del') { e.preventDefault(); const x = M.delMistake(S, t.dataset.id); if (x) { save(); render(); toast('اتمسحت'); } }
   });
   document.addEventListener('toggle', e => {
@@ -2068,7 +2111,7 @@ globalThis.QM_DATA = {"q":[[1,1,1,"بِسۡمِ ٱللَّهِ ٱلرَّحۡم�
   }, true);
   document.addEventListener('input', e => {
     const t = e.target; if (!t.matches || !t.matches('[data-qm=filter]')) return; filter = t.value;
-    document.querySelectorAll('details[data-qm-s]').forEach(d => { d.hidden = !matches(+d.dataset.qmS); });
+    document.querySelectorAll('details[data-qm-s]').forEach(d => { d.hidden = !matches(+d.dataset.qmS, L().state); });
   });
 
   window.QuranMapUI = { html, ensureText, addDialog };
