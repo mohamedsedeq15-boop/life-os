@@ -168,6 +168,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
 .qc-btns{display:flex;gap:6px} .qc-btns .btn{flex:1;justify-content:center}
 .qc .btn.ghost{border-color:var(--line2)}
 .qc-did{color:var(--ok);display:flex;flex-direction:column;gap:2px}
+.q-hrow{display:flex;gap:8px;align-items:baseline;justify-content:space-between;padding:2px 0} .q-hrow .linkbtn{flex:none;font-size:12px}
 .qc-next{display:flex;flex-direction:column;gap:3px;border-top:1px dashed var(--line,rgba(127,127,127,.35));padding-top:6px}
 .linkbtn{background:none;border:0;padding:0;color:var(--muted);text-decoration:underline;cursor:pointer;font-size:12px;align-self:flex-start}
 .qc-foot{font-size:11.5px}
@@ -269,7 +270,7 @@ fieldset.rng{border:1px solid var(--line);border-radius:10px;padding:6px 10px 10
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1124-1012';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1124-1017';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1259,19 +1260,22 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const arr = part === 'a' ? sec.A : sec.B, i = u % n;
     return arr.slice(Math.floor(i * arr.length / n), Math.floor((i + 1) * arr.length / n));
   }
+  /** The amounts still to do on a section, in order: ones taken back with «تراجع» first, then the pointer onwards. */
+  const qRedo = (q, key) => ((q.redo = q.redo || {})[key] = q.redo[key] || []);
+  function qQueue(state, key, n) { const q = state.qplan, r = qRedo(q, key).slice().sort((x, y) => x - y), out = r.slice(0, n); for (let u = q.prog[key]; out.length < n; u++) out.push(u); return out; }
   /** Everything the «اليوم» Quran element needs for `day`. */
   function quranToday(state, day) {
     const q = state.qplan; if (!q || !q.prog) return null;
     const sec = qSections(state), expected = Math.max(0, daysBetweenD(q.start, day)), daysLeft = Math.max(0, daysBetweenD(day, q.ramadan));
     const cTotal = Math.ceil(sec.C.length / q.cPerDay);
     const parts = Q_PARTS.map(([key, name, sub]) => {
-      const done = q.prog[key], behind = Math.max(0, expected - done), finished = key === 'c' && done >= cTotal;
+      const done = q.prog[key] - qRedo(q, key).length, behind = Math.max(0, expected - done), finished = key === 'c' && done >= cTotal;
       const doneToday = q.hist.filter(h => h.part === key && h.date === day).map(h => h.u);
       const unit = u => { const qs = qUnitQuarters(state, key, u); return { u, quarters: qs, text: qs.length ? quartersText(qs) : '' }; };
-      const cur = finished ? null : unit(done);
+      const cur = finished ? null : unit(qQueue(state, key, 1)[0]);
       const forDay = cur ? addDays(q.start, cur.u) : null; // the calendar day this amount belonged to
       return { key, name, sub, done, behind, ahead: Math.max(0, done - expected - 1), cur, forDay, doneToday: doneToday.map(unit), finished,
-        todayDone: done > expected, newCycle: key !== 'c' && !!cur && cur.u > 0 && cur.u % q.cycle === 0, skipped: !!((q.skip || {})[day] || {})[key], cycleDay: key === 'c' ? null : (done % q.cycle) + 1,
+        todayDone: done > expected, newCycle: key !== 'c' && !!cur && cur.u > 0 && cur.u % q.cycle === 0, skipped: !!((q.skip || {})[day] || {})[key], cycleDay: key === 'c' || !cur ? null : (cur.u % q.cycle) + 1,
         left: key === 'c' ? Math.max(0, cTotal - done) : null };
     });
     const late = parts.filter(p => p.behind > 0);
@@ -1281,21 +1285,29 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   /** «تم» on a section: its oldest open amount is done today. */
   function quranTick(state, day, key) {
     const q = state.qplan, x = quranToday(state, day), p = x.parts.find(y => y.key === key); if (!p || p.finished) return null;
-    q.hist.push({ part: key, u: q.prog[key]++, date: day }); if (q.skip[day]) delete q.skip[day][key];
+    const r = qRedo(q, key), u = p.cur.u, ri = r.indexOf(u); if (ri >= 0) r.splice(ri, 1); else q.prog[key]++;
+    q.hist.push({ part: key, u, date: day }); if (q.skip[day]) delete q.skip[day][key];
     const y = quranToday(state, day); if (y.parts[0].todayDone && y.parts[1].todayDone) state.taskStatus['quran@' + day] = Object.assign({}, state.taskStatus['quran@' + day], { done: true });
     return p.cur;
   }
+  /** «تراجع» on any entry of «اللي اتعلّم» (pressed by mistake): that amount goes back into the schedule as not done. */
+  function quranUndoEntry(state, i) {
+    const q = state.qplan, h = q.hist[i]; if (!h) return false;
+    q.hist.splice(i, 1); const r = qRedo(q, h.part);
+    if (h.u === q.prog[h.part] - 1) { q.prog[h.part]--; while (r.includes(q.prog[h.part] - 1)) { r.splice(r.indexOf(q.prog[h.part] - 1), 1); q.prog[h.part]--; } }
+    else if (!r.includes(h.u)) r.push(h.u);
+    if (h.part !== 'c') { const t = state.taskStatus['quran@' + h.date]; if (t) t.done = false; }
+    return true;
+  }
   /** Undo the last «تم» made today on a section. */
   function quranUndo(state, day, key) {
-    const q = state.qplan, i = q.hist.map(h => h.part === key && h.date === day).lastIndexOf(true); if (i < 0) return false;
-    q.hist.splice(i, 1); q.prog[key]--; if (key !== 'c') { const t = state.taskStatus['quran@' + day]; if (t) t.done = false; }
-    return true;
+    const q = state.qplan, i = q.hist.map(h => h.part === key && h.date === day).lastIndexOf(true); return i >= 0 && quranUndoEntry(state, i);
   }
   /** «لأ»: nothing done today on that section; it simply stays first tomorrow. */
   function quranSkip(state, day, key) { const q = state.qplan; (q.skip[day] = q.skip[day] || {})[key] = true; }
   /** What to recite to Sheikh Ismail now: the new quarters ticked since the last session. */
   function ismailDue(state) {
-    const q = state.qplan, sec = qSections(state), upTo = sec.C.slice(0, q.prog.c * q.cPerDay);
+    const q = state.qplan, sec = qSections(state), back = new Set(qRedo(q, 'c').flatMap(u => qUnitQuarters(state, 'c', u))), upTo = sec.C.slice(0, q.prog.c * q.cPerDay).filter(i => !back.has(i));
     return upTo.filter(i => i > q.ismailQ);
   }
   function ismailDone(state, day) {
@@ -1765,7 +1777,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
 
   const API = { AREAS, CATS, AREA_TO_CAT, DAY_NAMES, SLOT, hm, toMin, dateStr, parseDate, addDays, weekday, localStamp, relMin, daysBetween, weekStart, range, uid, clone, ar, fmtDur, hash,
-    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, noDur, SURAHS, T_PARTS, addStudent, rangeText, rangeAyat, addSession, sessionPos, studentNow, cycleSummary, studentForEvent, addTodayTask, extraDone, blockKey, blockRepeats, dropBlock, undoDrop, evRemoved, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
+    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, noDur, SURAHS, T_PARTS, addStudent, rangeText, rangeAyat, addSession, sessionPos, studentNow, cycleSummary, studentForEvent, addTodayTask, extraDone, blockKey, blockRepeats, dropBlock, undoDrop, evRemoved, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranUndoEntry, qQueue, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
     eventsOn, eventView, planDay, savePlan, currentPlan, replanDay, diffPlans, capacity, taskInstances, logActivity, addIncident, addEnergy, instanceDone,
     periodRange, analyze, reportText, assistant, assistantContext, pearson };
   g.LifeOS = API;
@@ -2110,8 +2122,8 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   V.quran = () => {
     const d = today(), x = E.quranToday(S, d); if (!x) return '<div class="empty">لا توجد خطة.</div>';
     const QP = S.qplan, part = k => x.parts.find(p => p.key === k);
-    const next = E.range(d, E.addDays(d, 6)).map((day, i) => ({ day, cells: x.parts.map(p => { if (p.finished) return '—'; const u = p.done + i; return esc(E.quartersText(E.qUnitQuarters(S, p.key, u)) || '—'); }) }));
-    const byDay = {}; for (const h of QP.hist) (byDay[h.date] = byDay[h.date] || []).push(h);
+    const next = E.range(d, E.addDays(d, 6)).map((day, i) => ({ day, cells: x.parts.map(p => { if (p.finished) return '—'; const u = E.qQueue(S, p.key, i + 1)[i]; return esc(E.quartersText(E.qUnitQuarters(S, p.key, u)) || '—'); }) }));
+    const byDay = {}; QP.hist.forEach((h, i) => (byDay[h.date] = byDay[h.date] || []).push(Object.assign({ i }, h)));
     const hist = Object.keys(byDay).sort().reverse().slice(0, 14);
     return `<div class="card intro" data-s="worship"><div class="small">ده أرشيف الخطة. التعليم بيتم من عنصر «القرآن» في صفحة <a href="#today">اليوم</a> بس. اللي يفوت بيترحل لوحده، واللي تزوّده بيقدّم الخطة.</div></div>
     <div class="grid g2">
@@ -2121,7 +2133,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
         <li><span style="flex:1"><strong>القسم ٣</strong> <span class="small muted">الجديد من أول يونس لحد يس، ربع كل يوم</span></span><span class="small">خلص ${E.ar(part('c').done * QP.cPerDay)} · باقي ${E.ar(part('c').left)} ربع</span></li></ul>
         <div class="small muted" style="margin-top:6px">${x.onTrack ? 'ماشي على الخطة.' : 'متأخر: ' + x.late.map(p => p.name + ' (' + daysTxt(p.behind) + ')').join('، ') + '. اللي فات بيظهر أول حاجة في صفحة اليوم.'}</div></div>
       <div class="card printable" data-s="worship"><h2>الأيام الجاية (لو مشيت يوم بيوم)</h2><div class="tblwrap"><table><thead><tr><th>اليوم</th><th>القسم ١</th><th>القسم ٢</th><th>القسم ٣</th></tr></thead><tbody>${next.map(r => `<tr><td>${fmtDate(r.day)}</td>${r.cells.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>
-      <div class="card" data-s="worship"><h2>اللي اتعلّم</h2>${hist.length ? `<ul class="list">${hist.map(dd => `<li><span class="tag" style="min-width:70px">${fmtDate(dd)}</span><span class="small" style="flex:1">${byDay[dd].map(h => x.parts.find(p => p.key === h.part).name + ': ' + esc(E.quartersText(E.qUnitQuarters(S, h.part, h.u)))).join('<br>')}</span></li>`).join('')}</ul>` : '<div class="empty">لسه مفيش. أول «تم» من صفحة اليوم.</div>'}</div>
+      <div class="card" data-s="worship"><h2>اللي اتعلّم</h2>${hist.length ? `<ul class="list">${hist.map(dd => `<li><span class="tag" style="min-width:70px">${fmtDate(dd)}</span><span class="small" style="flex:1">${byDay[dd].map(h => `<span class="q-hrow"><span>${x.parts.find(p => p.key === h.part).name}: ${esc(E.quartersText(E.qUnitQuarters(S, h.part, h.u)))}</span><button class="linkbtn" data-a="q-undo-i" data-i="${h.i}" aria-label="تراجع">↩ تراجع</button></span>`).join('')}</span></li>`).join('')}</ul><div class="small muted" style="margin-top:6px">دوست «تم» غلط؟ «تراجع» بيرجّع المقدار ده للجدول كأنه ما اتعلّمش.</div>` : '<div class="empty">لسه مفيش. أول «تم» من صفحة اليوم.</div>'}</div>
       <div class="card" data-s="worship"><h2>تسميع الشيخ</h2>${QP.ismail.length ? `<ul class="list">${QP.ismail.slice().reverse().map(y => `<li><span class="tag">${fmtDate(y.date)}</span><span style="flex:1">${y.quarters ? esc(E.quartersText(y.quarters)) : E.ar((y.pages || []).length) + ' صفحات'}</span></li>`).join('')}</ul>` : '<div class="empty">بيتسجل من موعد الشيخ في جدول اليوم (تم ✓).</div>'}</div>
     </div>`;
   };
@@ -3155,6 +3167,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       case 'k-del': { const it = S.knowledge.items.find(x => x.id === t.dataset.id); if (it && confirm('حذف «' + it.title + '»؟')) { S.knowledge.items = S.knowledge.items.filter(x => x !== it); save(); render(); } break; }
       case 'k-step-del': { const it = S.knowledge.items.find(x => x.id === t.dataset.id); it.steps.splice(+t.dataset.i, 1); save(); render(); break; }
       case 'q-tick': { const u = E.quranTick(S, today(), t.dataset.k); save(); render(); if (u) toast('✓ ' + E.quartersText(u.quarters)); break; }
+      case 'q-undo-i': { const h = S.qplan.hist[+t.dataset.i]; if (h && E.quranUndoEntry(S, +t.dataset.i)) { save(); render(); toast('↩ رجع للجدول: ' + E.quartersText(E.qUnitQuarters(S, h.part, h.u))); } break; }
       case 'q-undo': E.quranUndo(S, today(), t.dataset.k); save(); render(); break;
       case 'q-level': { const h = S.qplan.hist.filter(x => x.part === t.dataset.k && x.date === today()).slice(-1)[0]; if (h) { h.level = h.level === t.dataset.v ? null : t.dataset.v; save(); render(); } break; }
       case 'q-skip': E.quranSkip(S, today(), t.dataset.k); save(); render(); toast('هيترحل لبكرة لوحده'); break;
