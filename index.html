@@ -74,6 +74,7 @@ strong,b{font-weight:600}
 .tl{display:flex;flex-direction:column;gap:6px}
 .blk{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center;padding:9px 12px;border-radius:10px;background:var(--panel2);border:1px solid transparent;border-inline-start:3px solid var(--c,#999)}
 .blk.past{opacity:.55} .blk.now{background:var(--panel);border-color:var(--line2);border-inline-start-color:var(--c,#999);box-shadow:0 0 0 2px color-mix(in srgb,var(--c,var(--accent)) 30%,transparent)}
+.blk .ra{display:flex;align-items:center;gap:6px;justify-content:flex-end;flex-wrap:wrap} .blk .more{padding:3px 10px;font-weight:700;letter-spacing:1px} .removed{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
 .blk .t{font-weight:500} .blk.done .t{text-decoration:line-through;color:var(--muted)}
 .blk .tm{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px;direction:ltr;text-align:right}
 .tag{font-size:11.5px;padding:1px 8px;border-radius:99px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);white-space:nowrap;font-weight:500}
@@ -180,7 +181,7 @@ pre.rep{white-space:pre-wrap;font-family:inherit;background:var(--panel2);paddin
   .menu-btn{display:none!important} .main{padding:14px 14px 96px}
   .top h1{font-size:19px}
   .fab{bottom:78px}
-  .g2,.g3,.g4,.hub{grid-template-columns:1fr} .blk{grid-template-columns:78px 1fr} .blk .act{grid-column:1/-1}
+  .g2,.g3,.g4,.hub{grid-template-columns:1fr} .blk{grid-template-columns:78px 1fr} .blk .act{grid-column:1/-1} .blk .ra{grid-column:1/-1}
   .card{padding:14px}
   .g2.keep{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px} .g2.keep .ring{width:72px;height:72px} .g2.keep .ring>span{width:56px;height:56px;font-size:16px}
   .goals-list li{flex-wrap:wrap;gap:4px 8px} .goals-list li>span:last-child{flex-basis:100%;padding-inline-start:4px}
@@ -267,7 +268,7 @@ fieldset.rng{border:1px solid var(--line);border-radius:10px;padding:6px 10px 10
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1123-1940';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1124-0026';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -403,7 +404,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       settings: defaultSettings(), goals: defaultGoals(), tasks: defaultTasks(), taskStatus: {},
       events: {}, eventMeta: {}, projects: {}, quran: { quarters: {}, plan: {}, sessions: [], tadarok: {}, altPlanTimes: {} },
       business: { sales: {}, items: [], priceHistory: [], clients: [] }, income: [], familyNotes: [], healthNotes: [], ideas: [],
-      plans: {}, logs: [], energy: [], incidents: [], postponements: [],
+      plans: {}, logs: [], energy: [], incidents: [], postponements: [], dayRemovals: [],
       sync: { log: [], lastSync: {}, rules: {} }, conflicts: [], outbox: [], dataReview: [], milestones: {},
     };
   }
@@ -602,7 +603,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       if (t && !out.some(o => o.instance === p.instance)) out.push(Object.assign(inst(t, p.instance.split('@')[1]), { carried: true }));
     }
     function inst(t, d) { const instance = d ? `${t.id}@${d}` : t.id; return Object.assign({}, t, { instance, st: state.taskStatus[instance] || {} }); }
-    return out.filter(i => !i.st.done && !isPostponedAway(state, i.instance, day));
+    return out.filter(i => !i.st.done && !i.st.removed && !isPostponedAway(state, i.instance, day));
   }
   function isPostponedAway(state, instance, day) {
     const ps = state.postponements.filter(p => p.instance === instance); if (!ps.length) return false;
@@ -643,7 +644,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const dropFrozen = evId => { const k = blocks.findIndex(b => b.frozen && b.eventId === evId); if (k >= 0) blocks.splice(k, 1); };
 
     // 2) fixed calendar events + incidents
-    const evs = eventsOn(state, day);
+    const evs = eventsOn(state, day).filter(e => !evRemoved(state, e.id, day));
     for (const e of evs) {
       if (e.skip || e.allDay) continue;
       let sm = relMin(e.start, day), em = relMin(e.end, day);
@@ -667,7 +668,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     for (const lf of state.localFixed || []) {
       if (!lf.days.includes(wd) || (state.taskStatus['lf:' + lf.id + '@' + day] || {}).skip) continue;
       const sm = win.start + Math.floor((at(lf.from) - win.start) / SLOT) * SLOT, em = at(lf.to); if (!(em > sm)) continue;
-      const b = mk(sm, em, { type: 'event', kind: 'fixed', title: lf.title, area: lf.area, cat: AREA_TO_CAT[lf.area] || 'achievement', local: true, note: lf.note || '' });
+      const b = mk(sm, em, { type: 'event', kind: 'fixed', title: lf.title, area: lf.area, cat: AREA_TO_CAT[lf.area] || 'achievement', local: true, lfId: lf.id, note: lf.note || '' });
       if (em <= from) { if (!replanning) blocks.push(Object.assign(b, { past: true })); continue; }
       blocks.push(b); occupy(Math.max(sm, from), em, Object.assign(b, { away: true }));
     }
@@ -713,7 +714,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
 
     // 6) work block(s) — right after Quran, split around fixed events
     const workDone = (state.taskStatus['work@' + day] || {}).minutes || 0;
-    if (!S.work.offDays.includes(wd)) {
+    if (!S.work.offDays.includes(wd) && !(state.taskStatus['work@' + day] || {}).removed) {
       let left = Math.max(0, S.work.minutesPerDay - workDone);
       const q = blocks.find(b => b.type === 'quran');
       const evening = S.work.after === 'isha';
@@ -735,7 +736,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     for (const e of evs.filter(e => e.kind === 'flexible' && !e.skip && !e.allDay)) {
       const sm = relMin(e.start, day), em = relMin(e.end, day), need = Math.ceil((em - sm) / SLOT);
       if (em <= from) { if (!replanning) blocks.push(mk(sm, em, { type: 'event', kind: 'flexible', title: e.title, eventId: e.id, area: e.area, cat: 'achievement', past: true })); continue; }
-      const instKey = 'ev:' + e.id; if ((state.taskStatus[instKey] || {}).done) continue;
+      const instKey = 'ev:' + e.id; if ((state.taskStatus[instKey] || {}).done || (state.taskStatus[instKey] || {}).removed) continue;
       let at = free(idx(sm)) && runFree(idx(sm), need) ? idx(sm) : findRun(Math.max(fromIdx, idx(sm)), need, { forward: true });
       if (at == null) at = findRun(fromIdx, need, { forward: true });
       if (at == null) { postponed.push({ instance: instKey, title: e.title, reason: 'وقته الأصلي مشغول ولا يوجد بديل اليوم', to: null }); continue; }
@@ -837,6 +838,76 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
   const currentPlan = (state, day) => { const r = state.plans[day]; return r && r.versions.length ? r.versions[r.versions.length - 1] : null; };
 
+  /** «امسح / أجّل» a block on a day (24 Nov: «عاوز خيار مسح مهام من اليوم نهائي او تأجيلها لتاريخ او اليوم الذي يليه»).
+   *  key: a task/goal instance, work@day, a calendar event (ev:id@day) or a Life-OS weekly item (lf:id@day). */
+  function evRemoved(state, id, day) { return !!((state.taskStatus['ev:' + id + '@' + day] || {}).removed || (state.taskStatus['ev:' + id] || {}).removed); }
+  function blockKey(b, day) {
+    if (!b || b.type === 'prayer' || b.type === 'routine' || b.type === 'quran' || b.type === 'incident') return null;
+    if (b.instance) return b.instance;
+    if (b.eventId) return 'ev:' + b.eventId + '@' + day;
+    if (b.lfId) return 'lf:' + b.lfId + '@' + day;
+    return null;
+  }
+  /** What «امسحها خالص» would stop, or null when the item is a one-off. */
+  function blockRepeats(state, b) {
+    const t = b.taskId && state.tasks.find(x => x.id === b.taskId);
+    if (t) return t.recurrence || t.perWeek ? (t.goalId ? 'goal' : 'task') : null;
+    if (b.eventId) { const e = state.events[b.eventId]; return e && e.seriesId ? 'series' : null; }
+    if (b.lfId) return 'weekly';
+    return null;
+  }
+  function dropBlock(state, day, b, o) {
+    o = o || {};
+    const key = blockKey(b, day); if (!key) return null;
+    if (o.to && o.to <= day) throw new Error('التأجيل لازم ليوم بعد ' + day);
+    const rec = { id: uid('rm'), day, key, title: b.title, block: clone(b), to: o.to || null, forever: !!o.forever, at: new Date().toISOString(), undo: {} };
+    const t = b.taskId && state.tasks.find(x => x.id === b.taskId);
+    const oneOff = t && !t.recurrence && !t.perWeek && key === t.id;
+    const mark = () => { (state.taskStatus[key] || (state.taskStatus[key] = {})).removed = true; };
+    if (o.to) {
+      if (t) {
+        rec.ppId = uid('pp');
+        state.postponements.push({ id: rec.ppId, instance: key, minutes: t.duration, from: day, to: o.to, reason: 'أجّلتها', at: rec.at, title: t.title, manual: true });
+        if (oneOff) { rec.undo.task = { startDate: t.startDate, due: t.due }; t.startDate = o.to; if (t.due && t.due < o.to) t.due = o.to; }
+      } else { // appointment / weekly item / work: off this day, and a one-off task waits on the new day
+        mark();
+        const nt = { id: uid('t'), title: b.title.replace(/ \(\+\d+ د تأخير\)$/, ''), area: b.area || 'work', duration: Math.max(SLOT, b.endMin - b.startMin), priority: 3, energy: 'medium',
+          projectRef: null, recurrence: null, startDate: o.to, due: o.to, status: 'active', source: 'مؤجل من ' + day };
+        state.tasks.push(nt); rec.newTask = nt.id;
+      }
+    } else {
+      if (oneOff) { rec.undo.status = t.status; t.status = 'deleted'; } else mark();
+      if (o.forever) {
+        if (t && t.goalId) { const g = (state.bigGoals || []).find(x => x.id === t.goalId); if (g) { rec.undo.goal = g.status; g.status = 'archive'; syncGoalTasks(state); } }
+        else if (t) { rec.undo.status = t.status; t.status = 'paused'; }
+        else if (b.eventId) { const e = state.events[b.eventId], ids = Object.values(state.events).filter(x => e && e.seriesId ? x.seriesId === e.seriesId : x.id === b.eventId).map(x => x.id);
+          rec.undo.skip = ids.filter(id => !(state.eventMeta[id] || {}).skip); for (const id of ids) setEventMeta(state, id, { skip: true }); }
+        else if (b.lfId) { const lf = (state.localFixed || []).find(x => x.id === b.lfId); if (lf) { rec.undo.lfDays = lf.days.slice(); lf.days = lf.days.filter(x => x !== weekday(day)); } }
+      }
+    }
+    const p = currentPlan(state, day);
+    if (p) { p.blocks = p.blocks.filter(x => x.id !== b.id); p.postponed = (p.postponed || []).filter(x => x.instance !== key); }
+    if (o.to) delete state.plans[o.to]; // planned again with the item in it
+    (state.dayRemovals || (state.dayRemovals = [])).push(rec);
+    return rec;
+  }
+  function undoDrop(state, id) {
+    const L = state.dayRemovals || [], r = L.find(x => x.id === id); if (!r) return null;
+    const st = state.taskStatus[r.key]; if (st) delete st.removed;
+    if (r.ppId) state.postponements = state.postponements.filter(p => p.id !== r.ppId);
+    const t = r.block.taskId && state.tasks.find(x => x.id === r.block.taskId);
+    if (r.undo.goal) { const g = (state.bigGoals || []).find(x => x.id === (t && t.goalId)); if (g) { g.status = r.undo.goal; syncGoalTasks(state); } }
+    if (t && r.undo.task) Object.assign(t, r.undo.task);
+    if (t && r.undo.status) t.status = r.undo.status;
+    if (r.newTask) state.tasks = state.tasks.filter(x => x.id !== r.newTask);
+    for (const eid of r.undo.skip || []) setEventMeta(state, eid, { skip: false });
+    if (r.undo.lfDays) { const lf = (state.localFixed || []).find(x => x.id === r.block.lfId); if (lf) lf.days = r.undo.lfDays; }
+    const p = currentPlan(state, r.day);
+    if (p && !p.blocks.some(x => x.id === r.block.id)) { p.blocks.push(r.block); p.blocks.sort((a, b) => a.startMin - b.startMin); }
+    if (r.to) delete state.plans[r.to];
+    state.dayRemovals = L.filter(x => x !== r);
+    return r;
+  }
   /** A task said or typed for today goes straight into today's plan, in the first free gap from now (23 Nov: «لما احط مهمة في اليوم تظهر في الجدول»). */
   function addTodayTask(state, day, now, title, minutes, area) {
     const t = { id: uid('t'), title: String(title).trim(), area: area || 'work', duration: minutes || 30, priority: 3, energy: 'medium', due: day, projectRef: null, recurrence: null, status: 'active', source: 'اليوم' };
@@ -863,7 +934,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const fromMin = Math.ceil(nowMin / SLOT) * SLOT;
     // steps 1–3: remaining events, unfinished tasks, current energy
     const remainingEvents = eventsOn(state, day).filter(e => relMin(e.end, day) > nowMin && !e.skip);
-    const keep = old.blocks.filter(b => b.endMin <= nowMin || b.frozen).map(b => Object.assign({}, b, { status: instanceDone(state, b) ? 'done' : (state.taskStatus[b.instance] || {}).minutes ? 'partial' : (b.type === 'task' || b.type === 'work' || b.type === 'quran') ? 'missed' : 'past' }));
+    const keep = old.blocks.filter(b => (b.endMin <= nowMin || b.frozen) && !(b.eventId && (!state.events[b.eventId] || state.events[b.eventId]._removedRemote || evRemoved(state, b.eventId, day)))).map(b => Object.assign({}, b, { status: instanceDone(state, b) ? 'done' : (state.taskStatus[b.instance] || {}).minutes ? 'partial' : (b.type === 'task' || b.type === 'work' || b.type === 'quran') ? 'missed' : 'past' }));
     const doneList = old.blocks.filter(b => instanceDone(state, b)).map(b => b.title);
     const missed = old.blocks.filter(b => b.endMin <= nowMin && b.instance && !instanceDone(state, b) && ['task', 'quran', 'work', 'event'].includes(b.type)).map(b => b.title);
     const energy = energyFor(state, day, now);
@@ -1693,7 +1764,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
 
   const API = { AREAS, CATS, AREA_TO_CAT, DAY_NAMES, SLOT, hm, toMin, dateStr, parseDate, addDays, weekday, localStamp, relMin, daysBetween, weekStart, range, uid, clone, ar, fmtDur, hash,
-    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, noDur, SURAHS, T_PARTS, addStudent, rangeText, rangeAyat, addSession, sessionPos, studentNow, cycleSummary, studentForEvent, addTodayTask, extraDone, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
+    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, noDur, SURAHS, T_PARTS, addStudent, rangeText, rangeAyat, addSession, sessionPos, studentNow, cycleSummary, studentForEvent, addTodayTask, extraDone, blockKey, blockRepeats, dropBlock, undoDrop, evRemoved, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
     eventsOn, eventView, planDay, savePlan, currentPlan, replanDay, diffPlans, capacity, taskInstances, logActivity, addIncident, addEnergy, instanceDone,
     periodRange, analyze, reportText, assistant, assistantContext, pearson };
   g.LifeOS = API;
@@ -1796,6 +1867,27 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const st = S.taskStatus[b.instance] || {};
     return st.done ? 'done' : st.minutes ? 'partial' : null;
   }
+  /** ⋯ on a row: امسح من اليوم / أجّل لبكرة أو لتاريخ (24 Nov). */
+  function menuBtn(b, d) {
+    if (!E.blockKey(b, d) || blockState(b) === 'done' || (S.taskStatus['ev:' + b.eventId + '@' + d] || {}).done) return '';
+    return `<button class="btn sm ghost more" data-a="blk-menu" data-b="${esc(b.id)}" data-d="${d}" aria-label="امسح أو أجّل" title="امسح أو أجّل">⋯</button>`;
+  }
+  function removedLine(d) {
+    const L = (S.dayRemovals || []).filter(r => r.day === d); if (!L.length) return '';
+    return `<div class="small muted removed" style="margin-top:8px">${L.map(r => `<span class="rm-it">${esc(r.title)} <span class="muted">(${r.to ? 'اتأجلت لـ ' + fmtDate(r.to) : r.forever ? 'اتمسحت خالص' : 'اتمسحت من اليوم ده'})</span> <button class="btn sm ghost" data-a="blk-undo" data-id="${r.id}">↩ رجّعها</button></span>`).join(' ')}</div>`;
+  }
+  function blockMenu(d, id) {
+    const plan = E.currentPlan(S, d), b = plan && plan.blocks.find(x => x.id === id); if (!b) return;
+    const rep = E.blockRepeats(S, b), tom = E.addDays(d > today() ? d : today(), 1), tom2 = E.addDays(d, 1) > today() ? E.addDays(d, 1) : tom;
+    const foreverTxt = { goal: 'امسحها خالص (ماتظهرش تاني في أي يوم)', task: 'امسحها خالص (ماتظهرش تاني في أي يوم)', series: 'ماتعرضهاش تاني خالص (التقويم نفسه مش هيتغير)', weekly: 'شيلها من اليوم ده في كل أسبوع' }[rep];
+    modal(`<h2>${esc(b.title)}</h2><div class="small muted" style="margin-bottom:10px">${fmtDate(d)} · <bdi dir="ltr">${b.start}–${b.end}</bdi></div>
+      <div class="col" style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn primary" data-a="blk-do" data-v="to" data-to="${tom2}" data-b="${esc(id)}" data-d="${d}">أجّلها لبكرة (${fmtDate(tom2)})</button>
+        <div class="row"><input type="date" id="blk-date" min="${E.addDays(d, 1) > today() ? E.addDays(d, 1) : tom}" value="${E.addDays(tom2, 1)}" style="flex:1"><button class="btn" data-a="blk-do" data-v="date" data-b="${esc(id)}" data-d="${d}">أجّلها لليوم ده</button></div>
+        <button class="btn danger" data-a="blk-do" data-v="del" data-b="${esc(id)}" data-d="${d}">امسحها من ${d === today() ? 'النهارده' : 'اليوم ده'}</button>
+        ${foreverTxt ? `<button class="btn ghost danger" data-a="blk-do" data-v="forever" data-b="${esc(id)}" data-d="${d}">${foreverTxt}</button>` : ''}
+        <button class="btn ghost" data-a="close">رجوع</button></div>`);
+  }
   function freeAfterNow(plan) {
     if (!plan) return 0;
     const n = nowMin(), end = E.toMin(S.settings.sleepTime);
@@ -1850,7 +1942,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     if (st === 'partial') tags.push(`<span class="tag warn">جزئي ${D((S.taskStatus[b.instance] || {}).minutes)}</span>`);
     if (b.status === 'missed' && st !== 'done') tags.push('<span class="tag bad">لم يُنفذ</span>');
     const act = b.instance && st !== 'done' && !opts.readonly ? `<span class="act row"><button class="btn sm" data-a="done" data-i="${esc(b.instance)}" data-s="${b.startMin}" data-e="${b.endMin}" data-ar="${b.area}" data-p="${esc(b.taskId ? (S.tasks.find(t => t.id === b.taskId) || {}).projectRef || '' : '')}" data-d="${opts.date}">تم ✓</button><button class="btn sm ghost" data-a="partial" data-i="${esc(b.instance)}" data-ar="${b.area}" data-s="${b.startMin}" data-d="${opts.date}">جزئي</button></span>` : st === 'done' ? '<span class="tag hard">منجز</span>' : '<span></span>';
-    return `<div class="${cls}" style="--c:${areaColor(b.area)}"><span class="tm">${b.start}–${b.end}</span><span><span class="t">${esc(b.title)}</span> ${tags.join(' ')}</span>${act}</div>`;
+    return `<div class="${cls}" style="--c:${areaColor(b.area)}"><span class="tm">${b.start}–${b.end}</span><span><span class="t">${esc(b.title)}</span> ${tags.join(' ')}</span><span class="ra">${act}${opts.readonly ? '' : menuBtn(b, opts.date)}</span></div>`;
   }
 
   // ------------------------------------------------------------- views
@@ -1907,7 +1999,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     </div>
     <div class="grid g2">
       <div class="card"><h2>الجدول ${plan ? `<span class="tag">نسخة ${plan.version} · ${esc(plan.reason)}</span>` : ''}<span class="sp"></span>${plan ? `<span class="muted small">طاقة ${plan.energy}/5 · متاح ${D(plan.freeMinutes)}</span>` : ''}</h2>
-        ${plan ? `<div class="tl">${plan.blocks.map(b => blockRow(b, { date: d })).join('')}</div>${plan.notes.length ? `<div class="muted small" style="margin-top:8px">${plan.notes.map(esc).join('<br>')}</div>` : ''}` : '<div class="empty">لا توجد خطة لهذا اليوم بعد.</div>'}
+        ${plan ? `<div class="tl">${plan.blocks.map(b => blockRow(b, { date: d })).join('')}</div>${removedLine(d)}${plan.notes.length ? `<div class="muted small" style="margin-top:8px">${plan.notes.map(esc).join('<br>')}</div>` : ''}` : '<div class="empty">لا توجد خطة لهذا اليوم بعد.</div>'}
       </div>
       <div class="grid">
         ${plan && plan.postponed.length ? `<div class="card"><h2>المؤجل وسبب التأجيل</h2><ul class="list">${plan.postponed.map(p => `<li><span style="flex:1"><strong>${esc(p.title)}</strong><br><span class="muted small">${esc(p.reason)}</span></span><span class="tag ${p.to || p.skipped ? '' : 'bad'}">${p.to ? 'إلى ' + fmtDate(p.to) : p.skipped ? 'لا يُرحَّل' : 'يحتاج قرارك'}</span></li>`).join('')}</ul></div>` : ''}
@@ -2238,6 +2330,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const items = plan.blocks.filter(b => b.type !== 'prayer' && b.type !== 'routine' && !isQ(b));
     const energy = (S.energy.filter(e => e.date === d).slice(-1)[0] || {}).level;
     return `${!SNAP && !Object.keys(S.events || {}).length ? `<div class="card" style="margin-bottom:14px;border-color:var(--accent)"><h2>أهلًا، خطوة واحدة</h2><div class="small">النسخة المنشورة لا تحمل بياناتك الشخصية. اختر ملف النسخة الاحتياطية (من فولدر Life OS في الدرايف) مرة واحدة، وبعدها كل شيء يبقى على هذا الجهاز.</div><label class="btn primary" style="margin-top:8px">استعادة نسختي<input type="file" accept=".json,application/json" data-a="restore" hidden></label></div>` : ''}
+    ${GCID() && calAgeMin() > 12 * 60 ? `<div class="card noprint" style="margin-bottom:12px;padding:10px 14px"><div class="row"><span class="small" style="flex:1">${S.sync.lastSync.calendar ? 'التقويم ماتزامنش من ' + fmtTs(S.sync.lastSync.calendar) + '، فممكن يكون فيه حاجات اتمسحت أو اتغيرت هناك.' : 'التقويم لسه ماتزامنش مع جوجل.'}</span><button class="btn sm primary" data-a="gsync">زامن التقويم</button></div></div>` : ''}
     ${GCID() && (daysSinceDrive() == null || daysSinceDrive() >= 2) ? `<div class="card noprint" style="margin-bottom:12px;padding:10px 14px"><div class="row"><span class="small" style="flex:1">${daysSinceDrive() == null ? 'لسه مفيش نسخة من بياناتك على درايف.' : `آخر نسخة على درايف من ${E.ar(daysSinceDrive())} أيام.`}</span><button class="btn sm primary" data-a="drive-backup">احفظ على درايف</button></div></div>` : ''}
     <div class="grid g2 keep">
       <div class="card"><h2>الآن</h2>${cur ? `<div style="font-weight:600">${esc(cur.title)}</div><div class="muted small"><bdi dir="ltr">${cur.start}–${cur.end}</bdi></div>` : '<div class="muted">وقت متاح</div>'}<div class="muted small" style="margin-top:4px">غير محجوز حتى النوم: ${D(freeAfterNow(plan))}</div></div>
@@ -2246,6 +2339,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       <div class="card" data-s="worship" style="margin-top:14px"><h2>الأوراد والعادات</h2><div class="wirds">${(S.awrad || []).filter(w => !w.days || w.days.includes(E.weekday(d))).map(w => [w, wirdWhen(w, plan)]).sort((a, b) => a[1].min - b[1].min).map(([w, x]) => `<button title="${esc(w.note || '')}" data-a="wird" data-id="${w.id}" class="wd ${log[w.id] ? 'on' : ''}"><b>${log[w.id] ? '✓ ' : ''}${esc(w.title).replace('ﷺ', '<span class="sym">ﷺ</span>')}</b><span>${esc(x.txt)}</span></button>`).join('')}</div></div>
     <div class="card" style="margin-top:14px"><h2>جدول اليوم<span class="sp"></span><button class="btn sm ghost" data-a="log">تسجيل نشاط</button><button class="btn sm" data-a="incident">طارئ أو تأخير</button><button class="btn sm primary" data-a="replan">إعادة تخطيط اليوم</button></h2>
       <div class="tl">${[...items.map(b => [b.startMin, todayRow(b, d, n)]), ...E.extraDone(S, d).map(l => [E.toMin(l.start || '00:00'), extraRow(l)])].sort((x, y) => x[0] - y[0]).map(x => x[1]).join('')}</div>
+      ${removedLine(d)}
       ${plan.postponed.length ? `<div class="small muted" style="margin-top:8px">لم يتسع له اليوم: ${plan.postponed.map(p => esc(p.title) + ' (' + esc(p.reason.split(' — ')[0]) + ')').join('، ')}</div>` : ''}
       <div class="small muted" style="margin-top:6px">الصلوات والقيلولة محجوزة ولا تظهر هنا، وحصص القرآن في عنصر «القرآن» تحت. <a href="#day">الجدول الكامل</a></div>
     </div>
@@ -2310,7 +2404,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       title = `${esc(b.title)}<div class="small muted">الحزب: ${q.entry.n ? 'سُمّع اليوم: ' + esc(E.quartersText(q.entry.nQ || [])) : esc(q.nextHizbText)}</div>`;
       act2 = q.entry.n ? `<span class="tag hard">سُمّع: ${{ good: 'جيد', mid: 'متوسط', weak: 'ضعيف' }[q.entry.n]}</span>` : rate('qismail', null, { good: 'جيد', mid: 'متوسط', weak: 'ضعيف' });
     }
-    return `<div class="blk ${st === 'done' ? 'done' : ''} ${past ? 'past' : ''} ${now ? 'now' : ''}" style="--c:${fileColor(fileOfBlock(b)) || areaColor(b.area)}"><span class="tm">${b.start}–${b.end}</span><span><span class="t">${title}</span>${b.kind === 'fixed' ? ' <span class="tag fixed">موعد</span>' : ''}</span>${act2}</div>`;
+    return `<div class="blk ${st === 'done' ? 'done' : ''} ${past ? 'past' : ''} ${now ? 'now' : ''}" style="--c:${fileColor(fileOfBlock(b)) || areaColor(b.area)}"><span class="tm">${b.start}–${b.end}</span><span><span class="t">${title}</span>${b.kind === 'fixed' ? ' <span class="tag fixed">موعد</span>' : ''}</span><span class="ra">${act2}${menuBtn(b, d)}</span></div>`;
   }
 
   V.week2 = (q) => {
@@ -2678,20 +2772,21 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   const REDIRECT = () => /github\.io$/.test(location.hostname) ? location.origin + '/life-os/' : location.origin + location.pathname; // must equal the URI registered at Google
   function lsGet(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
-  function getToken() {
+  function getToken(silent) {
     const t = lsGet('lifeos-gtoken'); if (t && t.exp > Date.now() + 60000) return Promise.resolve(t.t);
     const st = Math.random().toString(36).slice(2); lsSet('lifeos-gstate', st);
     const u = 'https://accounts.google.com/o/oauth2/v2/auth?response_type=token&include_granted_scopes=true'
       + '&client_id=' + encodeURIComponent(GCID()) + '&redirect_uri=' + encodeURIComponent(REDIRECT())
-      + '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.file') + '&state=' + st + (S.sync.gAuthorized ? '' : '&prompt=consent');
-    toast('بفتح جوجل…'); location.href = u;
+      + '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.file') + '&state=' + st + (silent ? '&prompt=none' : S.sync.gAuthorized ? '' : '&prompt=consent');
+    if (silent) lsSet('lifeos-auto-try', Date.now()); else toast('بفتح جوجل…');
+    location.href = u;
     return new Promise(() => { }); // the page leaves; sync resumes after the redirect back
   }
   /** Called at start: if Google just sent us back with a token, keep it and sync. */
   function takeGoogleReturn() {
     const h = location.hash.slice(1); if (!/(^|&)(access_token|error)=/.test(h)) return false;
     const p = new URLSearchParams(h); history.replaceState(null, '', REDIRECT() + '#today');
-    if (p.get('error')) { setTimeout(() => toast('جوجل رفض: ' + p.get('error')), 300); return false; }
+    if (p.get('error')) { const auto = Date.now() - (lsGet('lifeos-auto-try') || 0) < 5 * 60000; if (!auto) setTimeout(() => toast('جوجل رفض: ' + p.get('error')), 300); return false; } // a silent try that needs a tap just stays quiet
     if (p.get('state') !== lsGet('lifeos-gstate')) { setTimeout(() => toast('رجوع غير متوقع من جوجل، جرّب تاني'), 300); return false; }
     lsSet('lifeos-gtoken', { t: p.get('access_token'), exp: Date.now() + (+p.get('expires_in') || 3600) * 1000 });
     return true;
@@ -2725,7 +2820,16 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     lsSet('lifeos-after', 'backup'); getToken();
   }
   const daysSinceDrive = () => S.sync.lastDrive ? Math.round((E.parseDate(today()) - E.parseDate(S.sync.lastDrive.slice(0, 10))) / 86400000) : null;
-  async function syncCalendarLive() {
+  /** The calendar is the authority (24 Nov: «حاجات حذفتها في التقويم لسه موجودة في البرنامج»): it syncs by itself when the app opens
+   *  or comes back to the screen, if the last sync is older than an hour — directly while Google's token is valid, otherwise one quiet trip to Google. */
+  const calAgeMin = () => S.sync.lastSync.calendar ? (Date.now() - new Date(S.sync.lastSync.calendar)) / 60000 : Infinity;
+  function autoCalendar(allowRedirect) {
+    if (!GCID() || !S.sync.gAuthorized || calAgeMin() < 60) return false;
+    if (tokenNow()) { syncCalendarLive(true); return true; }
+    if (!allowRedirect || Date.now() - (lsGet('lifeos-auto-try') || 0) < 3 * 3600000) return false;
+    getToken(true); return true;
+  }
+  async function syncCalendarLive(quiet) {
     if (!GCID()) { toast('محتاج مفتاح الربط من جوجل الأول (الإعدادات)'); location.hash = 'settings'; return; }
     const from = E.addDays(today(), -1), to = E.addDays(today(), 60);
     try {
@@ -2739,8 +2843,8 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       const res = E.applyCalendar(S, E.mapGoogleEvents(items, [from, to]), 'مباشرة من الموبايل', from + 'T00:00');
       for (const d of Object.keys(S.plans)) if (d > today()) delete S.plans[d];
       S.plans[today()] && E.replanDay(S, today(), nowStamp(), 'مزامنة التقويم');
-      save(); render(); driveBackup(tok, true); const c = res.counts || {}; toast(`اتزامن التقويم: ${E.ar(c.added || 0)} جديد، ${E.ar(c.updated || 0)} اتعدل، ${E.ar(c.removed || 0)} اتشال`);
-    } catch (err) { if (/401/.test(err.message)) { try { localStorage.removeItem('lifeos-gtoken'); } catch (e) { } } toast('المزامنة ما نجحتش: ' + err.message); }
+      save(); render(); driveBackup(tok, true); const c = res.counts || {}; if (!quiet || c.added || c.updated || c.removed) toast(`اتزامن التقويم: ${E.ar(c.added || 0)} جديد، ${E.ar(c.updated || 0)} اتعدل، ${E.ar(c.removed || 0)} اتشال`);
+    } catch (err) { if (/401/.test(err.message)) { try { localStorage.removeItem('lifeos-gtoken'); } catch (e) { } } if (!quiet) toast('المزامنة ما نجحتش: ' + err.message); }
   }
   V.report = (q) => {
     const [ws, we] = E.periodRange('week', q.get('d') || today());
@@ -2993,6 +3097,16 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
         E.logActivity(S, { date: d, start: H(s), end: H(en), area: t.dataset.ar, instance: t.dataset.i, projectRef: t.dataset.p || null, complete: true, title: t.closest('.blk, li').querySelector('.t, span[style]').textContent.trim() });
         save(); render(); toast('سُجل كمنجز. يمكنك تعديل الوقت الفعلي من السجل.'); break;
       }
+      case 'blk-menu': blockMenu(t.dataset.d, t.dataset.b); break;
+      case 'blk-do': {
+        const d = t.dataset.d, plan = E.currentPlan(S, d), b = plan && plan.blocks.find(x => x.id === t.dataset.b); if (!b) { closeModal(); break; }
+        const v = t.dataset.v, to = v === 'to' ? t.dataset.to : v === 'date' ? ($('#blk-date') || {}).value : null;
+        if (v === 'date' && (!to || to <= d)) { toast('اختار يوم بعد ' + fmtDate(d)); break; }
+        if (v === 'forever' && !confirm('«' + b.title + '» مش هتظهر تاني. متأكد؟')) break;
+        try { E.dropBlock(S, d, b, { to, forever: v === 'forever' }); } catch (err) { toast(err.message); break; }
+        closeModal(); save(); render(); toast(to ? `اتأجلت لـ ${fmtDate(to)} ✓` : v === 'forever' ? 'اتمسحت خالص ✓ (تقدر ترجعها من تحت الجدول)' : 'اتمسحت من اليوم ✓ (تقدر ترجعها من تحت الجدول)'); break;
+      }
+      case 'blk-undo': { const r = E.undoDrop(S, t.dataset.id); save(); render(); if (r) toast('رجعت «' + r.title + '»'); break; }
       case 'partial': logDialog({ date: t.dataset.d, instance: t.dataset.i, area: t.dataset.ar }); break;
       case 'replan': doReplan(); break;
       case 'incident': incidentDialog(); break;
@@ -3222,10 +3336,12 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     S = E.bootstrap(await Store.load(), SNAP);
     save(); render();
     if (gBack && lsGet('lifeos-after') === 'backup') { lsSet('lifeos-after', null); driveBackup(tokenNow()); }
-    else if (gBack) syncCalendarLive();
-    else if (tokenNow() && (!S.sync.lastDrive || S.sync.lastDrive.slice(0, 10) !== today())) driveBackup(tokenNow(), true);
+    else if (gBack) syncCalendarLive(Date.now() - (lsGet('lifeos-auto-try') || 0) < 5 * 60000);
     else if (takeProducts() || takePricing() || takeStudents()) {}
     else if (location.hash === '#sync') { history.replaceState(null, '', location.pathname + location.search + '#today'); render(); syncCalendarLive(); }
+    else if (autoCalendar(true)) {}
+    else if (tokenNow() && (!S.sync.lastDrive || S.sync.lastDrive.slice(0, 10) !== today())) driveBackup(tokenNow(), true);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !$('#modal')) autoCalendar(false); });
     setInterval(() => { if (!$('#modal') && route() === 'home') render(); }, 60000);
     if ((Store.mode === 'server' || location.protocol === 'https:') && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { }); // installed copy works offline
     window.addEventListener('pagehide', () => { try { S.savedAt = new Date().toISOString(); localStorage.setItem('lifeos-state', JSON.stringify(S)); } catch (e) { } });
