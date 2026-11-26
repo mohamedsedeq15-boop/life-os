@@ -361,7 +361,7 @@ fieldset.rng{border:1px solid var(--line);border-radius:10px;padding:6px 10px 10
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1124-1810';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1126-0707';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1315,13 +1315,23 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   function fixedAppointments(state, from) {
     const seen = new Map();
     for (const d of range(from, addDays(from, 6))) for (const e of eventsOn(state, d)) {
-      if (e.skip || e.allDay || e.kind !== 'fixed' || stampDate(e.start) !== d) continue;
-      const k = e.seriesId || e.id; if (seen.has(k)) continue;
+      // Only true weekly commitments: a one-off event (no series in Google Calendar) never goes into the fixed weekly table.
+      if (e.skip || e.allDay || e.kind !== 'fixed' || !e.seriesId || stampDate(e.start) !== d) continue;
+      const k = e.seriesId; if (seen.has(k)) continue;
       seen.set(k, { title: e.title, day: weekday(d), start: e.start.slice(11, 16), end: e.end.slice(11, 16), overnight: stampDate(e.end) !== d, recurring: !!e.seriesId, note: e.description || '' });
     }
     const all = [...seen.values()].sort((a, b) => ((a.day + 1) % 7) - ((b.day + 1) % 7) || (a.start < b.start ? -1 : 1)); // week starts Saturday
     const groups = state.apptGroups ? state.apptGroups.map(([a, b, r]) => [a, b, new RegExp(r)]) : APPT_GROUPS;
     return groups.map(([id, name, re]) => ({ id, name, items: all.filter(a => !a._g && re.test(a.title) && (a._g = id)) })).filter(g => g.items.length);
+  }
+  /** One-off appointments (a single day, not a series) in the next 7 days, with their date. Shown apart from the weekly table. */
+  function oneOffAppointments(state, from) {
+    const out = [];
+    for (const d of range(from, addDays(from, 6))) for (const e of eventsOn(state, d)) {
+      if (e.skip || e.allDay || e.seriesId || stampDate(e.start) !== d) continue;
+      out.push({ title: e.title, date: d, day: weekday(d), start: e.start.slice(11, 16), end: e.end.slice(11, 16), overnight: stampDate(e.end) !== d });
+    }
+    return out;
   }
   // ---------------------------------------------------------------- Quran file (user's own plan, 23 Nov): 3 sections, 10-day cycle
   const PG = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
@@ -2105,7 +2115,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
 
   const API = { AREAS, CATS, AREA_TO_CAT, DAY_NAMES, SLOT, hm, toMin, dateStr, parseDate, addDays, weekday, localStamp, relMin, daysBetween, weekStart, range, uid, clone, ar, fmtDur, hash,
-    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, noDur, SURAHS, T_PARTS, addStudent, rangeText, rangeAyat, addSession, sessionPos, studentNow, cycleSummary, studentForEvent, addTodayTask, extraDone, blockKey, blockRepeats, dropBlock, undoDrop, editBlock, shiftRecurrence, splitRecurrence, evRemoved, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranUndoEntry, qQueue, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, BIZ_PARTS, seedBiz, addBizItem, addBizGoal, delBizItem, addGoalStep, checkGoalStep, delGoalStep, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
+    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, oneOffAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, noDur, SURAHS, T_PARTS, addStudent, rangeText, rangeAyat, addSession, sessionPos, studentNow, cycleSummary, studentForEvent, addTodayTask, extraDone, blockKey, blockRepeats, dropBlock, undoDrop, editBlock, shiftRecurrence, splitRecurrence, evRemoved, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranUndoEntry, qQueue, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, BIZ_PARTS, seedBiz, addBizItem, addBizGoal, delBizItem, addGoalStep, checkGoalStep, delGoalStep, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
     eventsOn, eventView, planDay, savePlan, currentPlan, replanDay, diffPlans, capacity, taskInstances, logActivity, addIncident, addEnergy, instanceDone,
     periodRange, analyze, reportText, weekStats, weekReview, suggest, REVIEW_AREAS, assistant, assistantContext, pearson };
   g.LifeOS = API;
@@ -3308,16 +3318,18 @@ globalThis.QM_DATA = {"q":[[1,1,1,"بِسۡمِ ٱللَّهِ ٱلرَّحۡم�
       <a class="card" href="#appts" style="text-decoration:none;color:inherit;border-top:4px solid var(--info)"><h2>المواعيد الثابتة</h2><div class="small muted">من Google Calendar، مقسّمة: دروس، تسميع، أسرة، التزامات.</div></a></div>`;
   };
   V.appts = (q) => {
-    const gs = E.fixedAppointments(S, today()), byDay = q && q.get('v') === 'day';
+    const gs = E.fixedAppointments(S, today()), byDay = q && q.get('v') === 'day', once = E.oneOffAppointments(S, today());
+    const onceCard = once.length ? `<div class="card noprint" style="margin-top:10px"><h2>مواعيد لمرة واحدة <span class="tag">${E.ar(once.length)}</span></h2><div class="small muted" style="margin-bottom:6px">دي مش بتتكرر، فمش جوه الجدول الثابت. بتظهر في يومها بس.</div><ul class="list">${once.map(a => `<li><strong style="min-width:70px">${E.DAY_NAMES[a.day]} ${E.ar(+a.date.slice(8))}/${E.ar(+a.date.slice(5, 7))}</strong><span style="flex:1">${esc(a.title)}</span><bdi class="small muted">${a.start}–${a.end}${a.overnight ? ' (+1)' : ''}</bdi></li>`).join('')}</ul></div>` : '';
     const tabs = `<div class="row noprint" style="margin-bottom:10px"><a class="btn ${byDay ? '' : 'primary'}" href="#appts">حسب النوع</a><a class="btn ${byDay ? 'primary' : ''}" href="#appts?v=day">حسب اليوم</a><span class="sp" style="flex:1"></span><button class="btn" onclick="print()">طباعة للسبورة</button></div>`;
     if (byDay) {
-      const all = E.range(today(), E.addDays(today(), 6)).flatMap(d => E.eventsOn(S, d).filter(e => !e.skip && !e.allDay && e.kind === 'fixed' && e.start.slice(0, 10) === d).map(e => ({ title: e.title, day: E.weekday(d), start: e.start.slice(11, 16), end: e.end.slice(11, 16) }))).concat((S.localFixed || []).flatMap(l => l.days.map(day => ({ title: l.title, day, start: /^\d/.test(l.from) ? l.from : ({ asr: 'العصر', dhuhr: 'الظهر', maghrib: 'المغرب', isha: 'العشاء', fajr: 'الفجر' }[l.from] || l.from), end: l.to, note: l.note || '' }))));
+      const all = E.range(today(), E.addDays(today(), 6)).flatMap(d => E.eventsOn(S, d).filter(e => !e.skip && !e.allDay && e.kind === 'fixed' && e.seriesId && e.start.slice(0, 10) === d).map(e => ({ title: e.title, day: E.weekday(d), start: e.start.slice(11, 16), end: e.end.slice(11, 16) }))).concat((S.localFixed || []).flatMap(l => l.days.map(day => ({ title: l.title, day, start: /^\d/.test(l.from) ? l.from : ({ asr: 'العصر', dhuhr: 'الظهر', maghrib: 'المغرب', isha: 'العشاء', fajr: 'الفجر' }[l.from] || l.from), end: l.to, note: l.note || '' }))));
       return tabs + `<div class="grid g2">${[6, 0, 1, 2, 3, 4, 5].map(day => { const it = all.filter(a => a.day === day).sort((a, b) => (/^\d/.test(a.start) ? a.start : '99') < (/^\d/.test(b.start) ? b.start : '99') ? -1 : 1);
-        return `<div class="card printable"><h2>${E.DAY_NAMES[day]} <span class="tag">${E.ar(it.length)}</span></h2><ul class="list">${it.map(a => `<li><bdi dir="ltr" class="small muted" style="min-width:92px">${a.start}–${a.end}</bdi><span style="flex:1">${esc(a.title)}</span></li>`).join('') || '<li class="empty">مفيش مواعيد ثابتة.</li>'}</ul></div>`; }).join('')}</div>`;
+        return `<div class="card printable"><h2>${E.DAY_NAMES[day]} <span class="tag">${E.ar(it.length)}</span></h2><ul class="list">${it.map(a => `<li><bdi dir="ltr" class="small muted" style="min-width:92px">${a.start}–${a.end}</bdi><span style="flex:1">${esc(a.title)}</span></li>`).join('') || '<li class="empty">مفيش مواعيد ثابتة.</li>'}</ul></div>`; }).join('')}</div>${onceCard}`;
     }
     return tabs + `
       <div class="grid g2">${gs.map(g => `<div class="card printable"><h2>${g.name} <span class="tag">${E.ar(g.items.length)}</span></h2><ul class="list">${g.items.map(a => `<li><strong style="min-width:70px">${E.DAY_NAMES[a.day]}</strong><span style="flex:1">${esc(a.title)}${a.note ? `<div class="small muted">${esc(a.note)}</div>` : ''}</span><bdi class="small muted">${a.start}–${a.end}${a.overnight ? ' (+1)' : ''}</bdi></li>`).join('')}</ul></div>`).join('') || '<div class="empty">لا مواعيد ثابتة في الأيام السبعة القادمة.</div>'}</div>
-      <div class="small muted" style="margin-top:10px">المرجع هو Google Calendar. أي تعديل في التقويم يظهر هنا بعد المزامنة.</div>`;
+${onceCard}
+      <div class="small muted" style="margin-top:10px">المرجع هو Google Calendar. هنا المواعيد المتكررة بس؛ أي تعديل في التقويم يظهر بعد المزامنة.</div>`;
   };
   V.file = (q) => {
     const f = E.FILES.find(x => x.id === q.get('f')) || E.FILES[0];
