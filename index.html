@@ -361,7 +361,7 @@ fieldset.rng{border:1px solid var(--line);border-radius:10px;padding:6px 10px 10
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1126-0707';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1127-1203';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1454,6 +1454,17 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     const y = quranToday(state, day); if (y.parts[0].todayDone && y.parts[1].todayDone) state.taskStatus['quran@' + day] = Object.assign({}, state.taskStatus['quran@' + day], { done: true });
     return p.cur;
   }
+  /** 27 Nov (Instinct reminders): the Quran amounts for `day`, counted ahead from today's position. Today's ticked parts come with done: true. */
+  function quranAhead(state, today, day) {
+    const x = quranToday(state, today); if (!x) return [];
+    const k = daysBetweenD(today, day); if (k < 0) return [];
+    return x.parts.map(p => {
+      if (k === 0) return { key: p.key, name: p.name, text: p.todayDone ? p.doneToday.map(u => u.text).filter(Boolean).join('، ') : p.cur ? p.cur.text : '', done: !!p.todayDone };
+      if (p.finished) return { key: p.key, name: p.name, text: '', done: false };
+      const i = k - (p.todayDone ? 1 : 0), u = qQueue(state, p.key, i + 1)[i], qs = qUnitQuarters(state, p.key, u);
+      return { key: p.key, name: p.name, text: qs.length ? quartersText(qs) : '', done: false };
+    }).filter(p => p.text);
+  }
   /** «تراجع» on any entry of «اللي اتعلّم» (pressed by mistake): that amount goes back into the schedule as not done. */
   function quranUndoEntry(state, i) {
     const q = state.qplan, h = q.hist[i]; if (!h) return false;
@@ -2115,7 +2126,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   }
 
   const API = { AREAS, CATS, AREA_TO_CAT, DAY_NAMES, SLOT, hm, toMin, dateStr, parseDate, addDays, weekday, localStamp, relMin, daysBetween, weekStart, range, uid, clone, ar, fmtDur, hash,
-    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, oneOffAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, noDur, SURAHS, T_PARTS, addStudent, rangeText, rangeAyat, addSession, sessionPos, studentNow, cycleSummary, studentForEvent, addTodayTask, extraDone, blockKey, blockRepeats, dropBlock, undoDrop, editBlock, shiftRecurrence, splitRecurrence, evRemoved, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranTick, quranUndo, quranUndoEntry, qQueue, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, BIZ_PARTS, seedBiz, addBizItem, addBizGoal, delBizItem, addGoalStep, checkGoalStep, delGoalStep, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
+    prayerTimes, tzOffsetHours, applyAutoDecisions, FILES, FILE_AREA, fileOfArea, GOAL_STATUS, seedV2, seedCharity, seedLessons, K_TRACKS, K_STATUS, CHARITY_SYSTEM, fixedAppointments, oneOffAppointments, quranDay, quartersText, rateQuran, rateQuranDay, rateWeakAgain, ismailRecited, IDEA_CATS, addIdea, spokenMinutes, parsePricing, setPricing, addPriceRef, noDur, SURAHS, T_PARTS, addStudent, rangeText, rangeAyat, addSession, sessionPos, studentNow, cycleSummary, studentForEvent, addTodayTask, extraDone, blockKey, blockRepeats, dropBlock, undoDrop, editBlock, shiftRecurrence, splitRecurrence, evRemoved, estimatePrice, parseCommand, Q_PARTS, seedQuranV5, quranToday, qUnitQuarters, quranAhead, quranTick, quranUndo, quranUndoEntry, qQueue, quranSkip, ismailDue, ismailDone, seedSleep, logSleep, sleepStats, sleepSessions, sleepDay, addSleep, delSleep, PROJ_STATUS, STEP_WHEN, seedProjects, BIZ_PARTS, seedBiz, addBizItem, addBizGoal, delBizItem, addGoalStep, checkGoalStep, delGoalStep, addProject, setProjectStatus, addStep, checkStep, moveStep, projProgress, projectSteps, CHARITY_CATS, seedV3, addLedger, ledgerSummary, distribute, linkedGoals, lessonFor, parseBatches, addBatches, wedPlan, listNumbers, addUrgent, openUrgent, matchUrgent, parseRequests, addRequests, mapGoogleEvents, syncGoalTasks, newState, migrate, bootstrap, applySnapshot, applyCalendar, applyNotion, applyDrive, detectCrossConflicts, resolveConflict, editLocal, setEventMeta,
     eventsOn, eventView, planDay, savePlan, currentPlan, replanDay, diffPlans, capacity, taskInstances, logActivity, addIncident, addEnergy, instanceDone,
     periodRange, analyze, reportText, weekStats, weekReview, suggest, REVIEW_AREAS, assistant, assistantContext, pearson };
   g.LifeOS = API;
@@ -2568,6 +2579,162 @@ globalThis.QM_DATA = {"q":[[1,1,1,"بِسۡمِ ٱللَّهِ ٱلرَّحۡم�
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(start, 0)); else setTimeout(start, 0);
 
   root.GTasks = Object.assign({ html, refresh, add, setDone, del }, pure);
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* Life OS — reminders through Instinct (27 Nov 2026).
+ * The user wants his assistant bot (Instinct) to know what is in the app and remind him of it. Instinct cannot open the app,
+ * but it reads the user's Google Calendar. So the app keeps its own secondary calendar «Life OS» filled for the next 7 days:
+ * the awrad at their times, the day's Quran amounts, and the plan blocks that exist only in the app (not the events that
+ * are already in his main calendar). Anything ticked in the app gets «✓» in front of its title there.
+ * Scope: calendar.app.created (only calendars this app made). The main calendar is never touched; the app reads «primary» only,
+ * so nothing comes back in a loop. Depends on window.__lifeos from app.js. Pure helpers are Node-testable. */
+(function (root) {
+  'use strict';
+  const DAYS = 7, NAME = 'Life OS', TZ = 'Africa/Cairo';
+  const SCOPE = 'https://www.googleapis.com/auth/calendar.app.created';
+  const API = 'https://www.googleapis.com/calendar/v3/';
+  const pad = n => String(n).padStart(2, '0');
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // ------------------------------------------------------------ pure helpers
+  function addDays(day, n) { const d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+  /** Minutes from the start of `day` (may pass midnight) → local «YYYY-MM-DDTHH:MM:00». */
+  function stamp(day, min) { const k = Math.floor(min / 1440), m = ((min % 1440) + 1440) % 1440; return addDays(day, k) + 'T' + pad(Math.floor(m / 60)) + ':' + pad(m % 60) + ':00'; }
+  const SHOW = ['quran', 'work', 'task', 'event', 'incident'];
+  /** What goes into the «Life OS» calendar for one day.
+   *  x = { day, blocks, awrad: [{id,title,note,min,txt}], awradDone: {id:true}, done(block) → bool, quran: [{name,text,done}] } */
+  function dayItems(x) {
+    const out = [], ids = new Set();
+    const put = (id, title, from, to, done, desc) => { if (ids.has(id)) return; ids.add(id); out.push({ k: x.day + '|' + id, title: (done ? '✓ ' : '') + title, start: stamp(x.day, from), end: stamp(x.day, Math.max(to, from + 5)), desc: (desc ? desc + '\n\n' : '') + (done ? 'اتعمل ✓ (من Life OS)' : 'من Life OS') }); };
+    for (const b of x.blocks || []) {
+      if (!SHOW.includes(b.type) || (b.eventId && !b.local)) continue; // already in the main calendar
+      if (b.type === 'quran') {
+        const q = x.quran || [], all = q.length && q.every(p => p.done);
+        put('quran', 'ورد القرآن', b.startMin, b.endMin, all || !!x.done(b), q.map(p => (p.done ? '✓ ' : '') + p.name + ': ' + p.text).join('\n'));
+      } else put('b:' + (b.instance || b.lfId || b.title), b.title, b.startMin, b.endMin, !!x.done(b), b.note || '');
+    }
+    for (const w of x.awrad || []) {
+      if (w.min == null || w.min >= 9999) continue; // no time to remind at
+      if (w.id === 'w-sport' && ids.has('b:goal:g-sport@' + x.day)) continue; // already there as the sport block
+      put('w:' + w.id, w.title, w.min, w.min + 15, !!(x.awradDone || {})[w.id], [w.txt, w.note].filter(Boolean).join('\n'));
+    }
+    return out.sort((a, b) => a.start.localeCompare(b.start));
+  }
+  const sig = it => [it.title, it.start, it.end, it.desc].join('¦');
+  /** Google event → { k, h, id } (k: our key, h: the signature we wrote). */
+  const fromGoogle = e => { const p = (e.extendedProperties && e.extendedProperties.private) || {}; return { id: e.id, k: p.lk || '', h: p.lh || '' }; };
+  function toGoogle(it) {
+    return { summary: it.title, description: it.desc, start: { dateTime: it.start, timeZone: TZ }, end: { dateTime: it.end, timeZone: TZ },
+      reminders: { useDefault: false, overrides: [] }, transparency: 'transparent', extendedProperties: { private: { lk: it.k, lh: sig(it) } } };
+  }
+  /** What to send so the calendar equals `want`: new ones, changed ones, and ours that are no longer wanted. */
+  function diff(have, want) {
+    const byK = new Map(), extra = [];
+    for (const e of have) { if (!e.k || byK.has(e.k)) extra.push(e); else byK.set(e.k, e); }
+    const add = [], patch = [];
+    for (const it of want) { const e = byK.get(it.k); if (!e) add.push(it); else { byK.delete(it.k); if (e.h !== sig(it)) patch.push(Object.assign({ id: e.id }, it)); } }
+    return { add, patch, del: [...byK.values(), ...extra] };
+  }
+
+  const pure = { stamp, dayItems, diff, sig, fromGoogle, toGoogle, addDays, SCOPE, DAYS };
+  if (typeof module !== 'undefined' && module.exports) { module.exports = pure; return; }
+
+  // ------------------------------------------------------------ browser side
+  const L = () => root.__lifeos || {};
+  const St = () => { const S = L().state; S.instinct = S.instinct || { on: false, calId: '', at: '', sig: '', err: '' }; return S.instinct; };
+  const hasScope = () => { try { const t = JSON.parse(localStorage.getItem('lifeos-gtoken') || 'null'); return !!(t && (!t.scope || t.scope.includes('calendar.app.created'))); } catch (e) { return false; } };
+  let busy = false;
+
+  /** Everything the «Life OS» calendar should hold, from today for DAYS days. */
+  function wanted() {
+    const S = L().state, E = L().E, d0 = L().today(), out = [];
+    for (let i = -1; i < DAYS; i++) { // yesterday too, for its blocks after midnight
+      const day = addDays(d0, i);
+      if (i < 0 && !E.currentPlan(S, day)) continue;
+      let plan = E.currentPlan(S, day); if (!plan) { try { plan = E.planDay(S, day, { today: d0 }); } catch (e) { plan = { blocks: [] }; } }
+      const awrad = (S.awrad || []).filter(w => !w.days || w.days.includes(E.weekday(day))).map(w => Object.assign({}, w, L().wirdWhen ? L().wirdWhen(w, plan) : {}));
+      const done = b => { const st = b.instance && S.taskStatus[b.instance]; return !!(st && st.done) || (b.lfId && !!(S.taskStatus['lf:' + b.lfId + '@' + day] || {}).done); };
+      out.push(...dayItems({ day, blocks: plan.blocks, awrad, awradDone: (S.awradLog || {})[day], done, quran: i >= 0 && E.quranAhead ? E.quranAhead(S, d0, day) : [] }));
+    }
+    return out.filter(it => it.start.slice(0, 10) >= d0);
+  }
+  async function call(method, path, body) {
+    const tok = L().tokenNow && L().tokenNow(); if (!tok) { const e = new Error('notoken'); e.status = 0; throw e; }
+    const r = await fetch(API + path, { method, headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    if (r.status === 204) return null;
+    const txt = await r.text(); if (!r.ok) { const e = new Error(r.status + ' ' + txt.slice(0, 200)); e.status = r.status; throw e; }
+    return txt ? JSON.parse(txt) : null;
+  }
+  async function calendarId() {
+    const I = St();
+    if (I.calId) { try { await call('GET', 'calendars/' + encodeURIComponent(I.calId)); return I.calId; } catch (e) { if (e.status !== 404) throw e; I.calId = ''; } } // the user deleted it: make it again
+    const c = await call('POST', 'calendars', { summary: NAME, description: 'بيكتبه تطبيق Life OS لوحده: الأوراد، ورد القرآن، وجدول اليوم. عشان Instinct يقرا منه ويفكرك. ماتعدلش فيه، التعديل من التطبيق.', timeZone: TZ });
+    I.calId = c.id; L().save(); return c.id;
+  }
+  /** Bring the calendar in line with the app. Skips the trip to Google when nothing changed since the last write. */
+  async function sync(force) {
+    const I = St(); if (!I.on || busy || !L().tokenNow || !L().tokenNow() || !hasScope()) return;
+    const want = wanted(), s = L().today() + '#' + want.map(sig).join('\n');
+    if (!force && s === I.sig && I.at && Date.now() - new Date(I.at) < 6 * 3600000) return;
+    busy = true;
+    try {
+      const id = await calendarId(), cal = 'calendars/' + encodeURIComponent(id) + '/events';
+      const d0 = L().today(), have = [];
+      let page = '';
+      do {
+        const r = await call('GET', cal + '?singleEvents=true&maxResults=250&timeZone=' + TZ + '&timeMin=' + encodeURIComponent(d0 + 'T00:00:00+02:00') + '&timeMax=' + encodeURIComponent(addDays(d0, DAYS + 1) + 'T00:00:00+02:00') + (page ? '&pageToken=' + page : ''));
+        have.push(...(r.items || []).filter(e => e.status !== 'cancelled' && (e.start.dateTime || e.start.date || '').slice(0, 10) >= d0).map(fromGoogle)); page = r.nextPageToken || '';
+      } while (page);
+      const x = diff(have, want);
+      for (const it of x.add) await call('POST', cal, toGoogle(it));
+      for (const it of x.patch) await call('PUT', cal + '/' + encodeURIComponent(it.id), toGoogle(it));
+      for (const e of x.del) { try { await call('DELETE', cal + '/' + encodeURIComponent(e.id)); } catch (err) { if (err.status !== 404 && err.status !== 410) throw err; } }
+      Object.assign(I, { sig: s, at: new Date().toISOString(), err: '' }); L().save();
+      if (force) L().toast(`تقويم Life OS اتحدّث ✓ (${x.add.length + x.patch.length + x.del.length} تغيير)`);
+    } catch (err) {
+      I.err = String(err.message || err).slice(0, 120); L().save();
+      if (force) L().toast(/insufficient|scope|PERMISSION|403|401/i.test(I.err) ? 'محتاج توافق لجوجل تاني: دوس «اربط» في كارت Instinct' : 'تقويم Life OS ما اتحدّثش: ' + I.err.slice(0, 60));
+    } finally { busy = false; if (L().render && /settings/.test(location.hash)) L().render(); }
+  }
+  function connect() {
+    const I = St(); I.on = true; L().save();
+    try { localStorage.setItem('lifeos-after', JSON.stringify('instinct')); localStorage.removeItem('lifeos-gtoken'); } catch (e) { }
+    L().getToken();
+  }
+
+  // ------------------------------------------------------------ card in Settings
+  function html() {
+    const S = L().state; if (!S) return '';
+    const I = St(), ok = I.on && hasScope() && L().tokenNow();
+    const say = 'كل يوم الصبح اقرا تقويم «Life OS» اللي في جوجل، وفكرني بكل حاجة فيه في ميعادها. اللي قدامها ✓ اتعملت، ماتفكرنيش بيها. واللي لسه ماعليهاش ✓ آخر اليوم فكرني بيها تاني.';
+    return `<div class="card" data-s="worship"><h2>التذكير عن طريق Instinct</h2>
+      <div class="small muted">التطبيق بيكتب الأوراد بمواعيدها، وورد القرآن بتاع كل يوم، وجدول اليوم، في تقويم جوجل منفصل اسمه «Life OS» لأسبوع قدام. Instinct بيقرا التقويم ده ويفكرك. اللي تعلّم عليه هنا بيتحط قدامه ✓ هناك.</div>
+      ${!I.on ? `<button class="btn primary" style="margin-top:8px" data-a="instinct-on">ابدأ</button>`
+        : `<div class="small" style="margin-top:8px">${ok ? (I.at ? 'آخر تحديث: ' + esc(new Date(I.at).toLocaleString('ar-EG', { timeZone: TZ, hour: 'numeric', minute: '2-digit', day: 'numeric', month: 'numeric' })) : 'بيتحدّث…') : 'محتاج توافق لجوجل مرة واحدة.'}${I.err ? ` <span class="tag warn">${esc(I.err.slice(0, 60))}</span>` : ''}</div>
+      <div class="row" style="margin-top:6px">${ok ? '<button class="btn sm" data-a="instinct-sync">حدّث دلوقتي</button>' : '<button class="btn sm primary" data-a="instinct-on">اربط</button>'}<button class="btn sm ghost" data-a="instinct-off">وقّف</button></div>
+      <div class="small" style="margin-top:10px"><b>قول لـ Instinct مرة واحدة:</b></div><div class="small" id="instinct-say" style="padding:8px;border:1px dashed var(--line,#ccc);border-radius:8px;margin-top:4px">${esc(say)}</div>
+      <button class="btn sm" style="margin-top:6px" data-a="instinct-copy">انسخ الكلام</button>`}
+    </div>`;
+  }
+  document.addEventListener('click', e => {
+    const t = e.target.closest('[data-a^="instinct-"]'); if (!t) return;
+    const a = t.dataset.a; e.stopPropagation();
+    if (a === 'instinct-on') connect();
+    else if (a === 'instinct-sync') sync(true);
+    else if (a === 'instinct-off') { if (confirm('توقّف تحديث تقويم Life OS؟ (التقويم نفسه هيفضل في جوجل، تقدر تمسحه من هناك)')) { St().on = false; L().save(); L().render(); } }
+    else if (a === 'instinct-copy') { const x = document.querySelector('#instinct-say'); if (x && navigator.clipboard) navigator.clipboard.writeText(x.textContent).then(() => L().toast('اتنسخ ✓'), () => L().toast('انسخه بإيدك')); }
+  }, true);
+
+  function start() {
+    if (!L().state) return setTimeout(start, 300);
+    try { if (JSON.parse(localStorage.getItem('lifeos-after') || 'null') === 'instinct' && L().tokenNow()) { localStorage.setItem('lifeos-after', 'null'); location.hash = 'settings'; setTimeout(() => sync(true), 500); return; } } catch (e) { }
+    setTimeout(() => sync(false), 4000); // after the calendar read on boot
+  }
+  setInterval(() => { if (document.visibilityState === 'visible') sync(false); }, 60000); // a tick in the app reaches the calendar within a minute
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && L().state) setTimeout(() => sync(false), 3000); });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(start, 0)); else setTimeout(start, 0);
+
+  root.Instinct = Object.assign({ html, sync, wanted }, pure);
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script>
@@ -3166,6 +3333,7 @@ globalThis.QM_DATA = {"q":[[1,1,1,"بِسۡمِ ٱللَّهِ ٱلرَّحۡم�
       <div class="card"><h2>مراجعة البيانات</h2><ul class="list">${S.dataReview.map(r => `<li><span class="tag ${DR[r.status][1]}">${DR[r.status][0]}</span><span style="flex:1">${esc(r.item)}${r.note ? `<br><span class="muted small">${esc(r.note)}</span>` : ''}</span></li>`).join('')}</ul></div>
       <div class="card"><h2>ربط تقويم جوجل (قراءة فقط)</h2><form class="row" data-form="gcid"><input type="text" name="gcid" value="${esc(S.settings.googleClientId || '')}" placeholder="${window.LIFEOS_GCID ? 'مضبوط' : 'Client ID من جوجل'}" style="flex:1" dir="ltr"><button class="btn sm">حفظ</button><button type="button" class="btn sm primary" data-a="gsync">مزامنة الآن</button></form>
         <div class="small muted" style="margin-top:4px">نسخة التطبيق: ${window.LIFEOS_BUILD || 'محلية'} · آخر مزامنة: ${fmtTs(S.sync.lastSync.calendar)}. التقويم هو المرجع: اللي تمسحه منه يتشال من هنا.</div></div>
+      ${window.Instinct ? window.Instinct.html() : ''}
       <div class="card"><h2>الإعدادات</h2><form id="settings-form" class="form">
         <label class="f">المدينة<input type="text" name="city" value="${esc(st.city)}"></label><label class="f">خط العرض<input type="number" step="0.0001" name="lat" value="${st.lat}"></label><label class="f">خط الطول<input type="number" step="0.0001" name="lon" value="${st.lon}"></label>
         <label class="f">بداية اليوم<input type="time" name="dayStart" value="${st.dayStart}"></label><label class="f">موعد النوم<input type="time" name="sleepTime" value="${st.sleepTime}"></label><label class="f">أقل نوم (ساعات)<input type="number" step="0.5" name="minSleepHours" value="${st.minSleepHours}"></label>
@@ -3548,7 +3716,7 @@ ${onceCard}
     const st = Math.random().toString(36).slice(2); lsSet('lifeos-gstate', st);
     const u = 'https://accounts.google.com/o/oauth2/v2/auth?response_type=token&include_granted_scopes=true'
       + '&client_id=' + encodeURIComponent(GCID()) + '&redirect_uri=' + encodeURIComponent(REDIRECT())
-      + '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.file' + (S.gtasks && S.gtasks.on ? ' https://www.googleapis.com/auth/tasks' : '')) + '&state=' + st + (silent ? '&prompt=none' : S.sync.gAuthorized ? '' : '&prompt=consent');
+      + '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.file' + (S.gtasks && S.gtasks.on ? ' https://www.googleapis.com/auth/tasks' : '') + (S.instinct && S.instinct.on ? ' https://www.googleapis.com/auth/calendar.app.created' : '')) + '&state=' + st + (silent ? '&prompt=none' : S.sync.gAuthorized ? '' : '&prompt=consent');
     if (silent) lsSet('lifeos-auto-try', Date.now()); else toast('بفتح جوجل…');
     location.href = u;
     return new Promise(() => { }); // the page leaves; sync resumes after the redirect back
@@ -4110,7 +4278,7 @@ ${onceCard}
     setInterval(() => { if (!$('#modal') && route() === 'home') render(); }, 60000);
     if ((Store.mode === 'server' || location.protocol === 'https:') && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { }); // installed copy works offline
     window.addEventListener('pagehide', () => { try { S.savedAt = new Date().toISOString(); localStorage.setItem('lifeos-state', JSON.stringify(S)); } catch (e) { } });
-    window.__lifeos = { get state() { return S; }, E, Store, render, save, modal, closeModal, toast, today, tokenNow, getToken };
+    window.__lifeos = { get state() { return S; }, E, Store, render, save, modal, closeModal, toast, today, tokenNow, getToken, wirdWhen };
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
