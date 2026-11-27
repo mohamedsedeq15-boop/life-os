@@ -701,8 +701,8 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
       if (t.at && t.startDate && t.startDate < day) continue; // an appointment whose day has passed is gone
       out.push(inst(t, null));
     }
-    // carried over postponements (recurring instances moved into this day)
-    for (const p of state.postponements) if (p.to === day && p.instance.includes('@')) {
+    // a recurring instance moves to another day only when you postponed it yourself (28 Nov: a missed habit is missed, not carried)
+    for (const p of state.postponements) if (p.to === day && p.manual && p.instance.includes('@')) {
       const t = state.tasks.find(x => x.id === p.instance.split('@')[0]);
       if (t && !out.some(o => o.instance === p.instance)) out.push(Object.assign(inst(t, p.instance.split('@')[1]), { carried: true }));
     }
@@ -941,6 +941,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     for (const p of postponed) {
       const t = p.taskId && state.tasks.find(x => x.id === p.taskId);
       if (t && t.perWeek) { p.skipped = true; p.to = null; p.reason += ' — يُعرض تلقائيًا في يوم آخر هذا الأسبوع'; }
+      else if (t && t.recurrence) { p.skipped = true; p.to = null; p.reason += ' — عادة: لو ماتعملتش النهارده تتحسب فايتة ومش بتترحل'; } // 28 Nov: only one-off tasks move forward
       else if (!t || t.routine) { p.skipped = true; p.to = null; p.reason += t ? ' — روتين يومي لا يُرحَّل' : p.instance.startsWith('ev:') ? ' — يعود في موعده القادم بالتقويم' : ' — لا يُرحَّل، ويُحسب في هدف الأسبوع'; }
       else p.to = p.to || suggestDay(state, day, p);
     }
