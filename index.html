@@ -370,7 +370,7 @@ fieldset.rng{border:1px solid var(--line);border-radius:10px;padding:6px 10px 10
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1127-2331';</script>
+window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62blj85s1qi48561s42grh.apps.googleusercontent.com'; window.LIFEOS_BUILD = '1127-2341';</script>
 <script>
 /* Life OS — core engine (no DOM). Runs in the browser and in Node (tests, server).
  * Contents: time utils · prayer times · state model · sync (upsert + conflicts) ·
@@ -1382,10 +1382,12 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   const Q_QUARTERS = [[1,1,1],[2,26,5],[2,44,7],[2,60,9],[2,75,11],[2,92,14],[2,106,17],[2,124,19],[2,142,22],[2,158,24],[2,177,27],[2,189,29],[2,203,32],[2,219,34],[2,233,37],[2,243,39],[2,253,42],[2,263,44],[2,272,46],[2,283,49],[3,15,51],[3,33,54],[3,52,56],[3,75,59],[3,93,62],[3,113,64],[3,133,67],[3,153,69],[3,171,72],[3,186,74],[4,1,77],[4,12,79],[4,24,82],[4,36,84],[4,58,87],[4,74,89],[4,88,92],[4,100,94],[4,114,97],[4,135,100],[4,148,102],[4,163,104],[5,1,106],[5,12,109],[5,27,112],[5,41,114],[5,51,117],[5,67,119],[5,82,121],[5,97,124],[5,109,126],[6,13,129],[6,36,132],[6,59,134],[6,74,137],[6,95,140],[6,111,142],[6,127,144],[6,141,146],[6,151,148],[7,1,151],[7,31,154],[7,47,156],[7,65,158],[7,88,162],[7,117,164],[7,142,167],[7,156,170],[7,171,173],[7,189,175],[8,1,177],[8,22,179],[8,41,182],[8,61,184],[9,1,187],[9,19,189],[9,34,192],[9,46,194],[9,60,196],[9,75,199],[9,93,201],[9,111,204],[9,122,206],[10,11,209],[10,26,212],[10,53,214],[10,71,217],[10,90,219],[11,6,222],[11,24,224],[11,41,226],[11,61,228],[11,84,231],[11,108,233],[12,7,236],[12,30,238],[12,53,242],[12,77,244],[12,101,247],[13,5,249],[13,19,252],[13,35,254],[14,10,256],[14,28,259],[15,1,262],[15,50,264],[16,1,267],[16,30,270],[16,51,272],[16,75,275],[16,90,277],[16,111,280],[17,1,282],[17,23,284],[17,50,287],[17,70,289],[17,99,292],[18,17,295],[18,32,297],[18,51,299],[18,75,302],[18,99,304],[19,22,306],[19,59,309],[20,1,312],[20,55,315],[20,83,317],[20,111,319],[21,1,322],[21,29,324],[21,51,326],[21,83,329],[22,1,332],[22,19,334],[22,38,336],[22,60,339],[23,1,342],[23,36,344],[23,75,347],[24,1,350],[24,21,352],[24,35,354],[24,53,356],[25,1,359],[25,21,362],[25,53,364],[26,1,367],[26,52,369],[26,111,371],[26,181,374],[27,1,377],[27,27,379],[27,56,382],[27,82,384],[28,12,386],[28,29,389],[28,51,392],[28,76,394],[29,1,396],[29,26,399],[29,46,402],[30,1,404],[30,31,407],[30,54,410],[31,22,413],[32,11,415],[33,1,418],[33,18,420],[33,31,422],[33,51,425],[33,60,426],[34,10,429],[34,24,431],[34,46,433],[35,15,436],[35,41,439],[36,28,442],[36,60,444],[37,22,446],[37,83,449],[37,145,451],[38,21,454],[38,52,456],[39,8,459],[39,32,462],[39,53,464],[40,1,467],[40,21,469],[40,41,472],[40,66,474],[41,9,477],[41,25,479],[41,47,482],[42,13,484],[42,27,486],[42,51,488],[43,24,491],[43,57,493],[44,17,496],[45,12,499],[46,1,502],[46,21,505],[47,10,507],[47,33,510],[48,18,513],[49,1,515],[49,14,517],[50,27,519],[51,31,522],[52,24,524],[53,26,526],[54,9,529],[55,1,531],[56,1,534],[56,75,536],[57,16,539],[58,1,542],[58,14,544],[59,11,547],[60,7,550],[62,1,553],[63,4,554],[65,1,558],[66,1,560],[67,1,562],[68,1,564],[69,1,566],[70,19,569],[72,1,572],[73,20,575],[75,1,577],[76,19,579],[78,1,582],[80,1,585],[82,1,587],[84,1,589],[87,1,591],[90,1,594],[94,1,596],[100,9,599]];
   const qSno = q => q === 1 ? 2 : Q_QUARTERS[q - 1][0]; // the first quarter (الفاتحة + البقرة ١–٢٥) counts as البقرة's first
   const qPage = q => Q_QUARTERS[q - 1][2], qSurah = q => Q_SURAH[qSno(q) - 1][1];
+  const qSurahCount = q => { let n = 0; for (let i = 1; i <= 240; i++) if (qSno(i) === qSno(q)) n++; return n; };
   const qIndexInSurah = q => { let n = 1; for (let i = q - 1; i >= 1 && qSno(i) === qSno(q); i--) n++; return n; };
   const quartersText = qs => { // [3,4,5] → «البقرة: الربع ٣–٥» ; quarters are labelled by the surah they start in
     const runs = []; for (const q of qs) { const r = runs[runs.length - 1], s = qSurah(q), i = qIndexInSurah(q); if (r && r.last === q - 1 && r.s === s) { r.b = i; r.last = q; } else runs.push({ s, a: i, b: i, last: q }); }
-    return runs.map(r => `${r.a === 1 && r.s === 'البقرة' ? 'الفاتحة و' : ''}${r.s}: الربع ${ar(r.a)}${r.b > r.a ? '–' + ar(r.b) : ''}`).join(' · ');
+    // 28 Nov (user): a run covering a whole surah is written by its name only
+    return runs.map(r => `${r.a === 1 && r.s === 'البقرة' ? 'الفاتحة و' : ''}${r.s}${r.a === 1 && r.b === qSurahCount(r.last) ? '' : `: الربع ${ar(r.a)}${r.b > r.a ? '–' + ar(r.b) : ''}`}`).join(' · ');
   };
   const Q_RATE = { good: 'جيد', mid: 'متوسط', weak: 'ضعيف' };
   function seedQuranPlan(state) {
@@ -1444,7 +1446,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   /** Each section is a queue of daily amounts. Ticking «تم» moves its pointer on; a day not ticked stays first (it rolls to the next day by itself, red);
    *  doing more than today's amount moves ahead. The plan is on track when every pointer has reached the days already passed.
    *  28 Nov (user): what was recited from section 3 (Yunus onwards, to Sheikh Ismail) is memorized, so it joins the 10-day review as its own queue «r». */
-  const Q_PARTS = [['a', 'القسم ١', 'المسمَّع للشيخ'], ['b', 'القسم ٢', 'القوي'], ['r', 'القسم ٣', 'المسمَّع من يونس'], ['c', 'الحفظ الجديد', 'ربع كل يوم لحد يس']];
+  const Q_PARTS = [['a', 'القسم ١', 'المسمَّع للشيخ'], ['b', 'القسم ٢', 'القوي'], ['r', 'القسم ٣', 'المسمَّع من يونس (من «تم» الجديد)'], ['c', 'الحفظ الجديد', 'ربع كل يوم لحد يس']];
   const Q_REVIEW = ['a', 'b', 'r'];
   function seedQuranV5(state) {
     const q = state.qplan; if (!q || (q.v || 0) >= 5) return false;
@@ -1456,8 +1458,11 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
     for (const d of days) for (const k of ['a', 'b']) if (log[d][k]) q.hist.push({ part: k, u: q.prog[k]++, date: d });
     q.skip = {}; q.v = 5; return true;
   }
-  /** Section 3 quarters already recited to Sheikh Ismail: memorized, so they are reviewed in the cycle. */
-  function qRecited(state) { const q = state.qplan; return qSections(state).C.filter(i => i <= q.ismailQ); }
+  /** Section 3 quarters already recited to the Sheikh = the new quarters ticked «تم» (user, 28 Nov): memorized, so they are reviewed in the cycle. */
+  function qRecited(state) {
+    const q = state.qplan, C = qSections(state).C, back = new Set(qRedo(q, 'c').flatMap(u => C.slice(u * q.cPerDay, (u + 1) * q.cPerDay)));
+    return C.slice(0, (q.prog.c || 0) * q.cPerDay).filter(i => !back.has(i));
+  }
   /** How many daily amounts make one round of a section: the cycle, or fewer while section 3's recited part is under 10 quarters. */
   function qCycleLen(state, part) { const n = state.qplan.cycle; return part === 'r' ? Math.min(n, qRecited(state).length) : n; }
   function qUnitQuarters(state, part, u) {
@@ -1475,7 +1480,7 @@ window.LIFEOS_SNAPSHOT = null; window.LIFEOS_GCID = '946305917910-6s85cednrt62bl
   function quranToday(state, day) {
     const q = state.qplan; if (!q || !q.prog) return null;
     const sec = qSections(state), expected = Math.max(0, daysBetweenD(q.start, day)), daysLeft = Math.max(0, daysBetweenD(day, q.ramadan));
-    if (q.prog.r == null) q.prog.r = expected; // section 3 review starts on the day it was added, not late
+    if (q.prog.r == null || !qCycleLen(state, 'r')) q.prog.r = expected; // section 3 review starts the day something is recited, not late
     const cTotal = Math.ceil(sec.C.length / q.cPerDay);
     const parts = Q_PARTS.map(([key, name, sub]) => {
       const len = key === 'c' ? 0 : qCycleLen(state, key), empty = key === 'r' && !len, exp = expected + (key === 'c' ? (q.cBase || 0) : 0);
@@ -3209,7 +3214,7 @@ globalThis.QM_DATA = {"q":[[1,1,1,"بِسۡمِ ٱللَّهِ ٱلرَّحۡم�
     const d = today(), x = E.quranToday(S, d); if (!x) return '<div class="empty">لا توجد خطة.</div>';
     const QP = S.qplan, part = k => x.parts.find(p => p.key === k);
     const next = E.range(d, E.addDays(d, 6)).map(day => { const ah = E.quranAhead(S, d, day); return { day, cells: x.parts.map(p => esc((ah.find(a => a.key === p.key) || {}).text || '—')) }; });
-    const C = E.quranDay(S, d).Cunits, rec = part('r');
+    const rec = part('r');
     const byDay = {}; QP.hist.forEach((h, i) => (byDay[h.date] = byDay[h.date] || []).push(Object.assign({ i }, h)));
     const hist = Object.keys(byDay).sort().reverse().slice(0, 14);
     return `<div class="card intro" data-s="worship"><div class="small">ده أرشيف الخطة. التعليم بيتم من عنصر «القرآن» في صفحة <a href="#today">اليوم</a> بس. اللي يفوت بيترحل لوحده، واللي تزوّده بيقدّم الخطة.</div></div>
@@ -3217,8 +3222,7 @@ globalThis.QM_DATA = {"q":[[1,1,1,"بِسۡمِ ٱللَّهِ ٱلرَّحۡم�
       <div class="card" data-s="worship"><h2>الأقسام<span class="sp"></span><span class="stat">باقي على رمضان <strong>${E.ar(x.daysLeft)}</strong> يوم</span></h2><ul class="list">
         <li><span style="flex:1"><strong>القسم ١</strong> <span class="small muted">الفاتحة ← التوبة، المسمَّع للشيخ</span></span><span class="small">دورة كل ${E.ar(x.cycle)} أيام · خلصت ${E.ar(Math.floor(part('a').done / x.cycle))} دورة</span></li>
         <li><span style="flex:1"><strong>القسم ٢</strong> <span class="small muted">الإسراء–طه، السجدة، يس–الناس</span></span><span class="small">دورة كل ${E.ar(x.cycle)} أيام · خلصت ${E.ar(Math.floor(part('b').done / x.cycle))} دورة</span></li>
-        <li style="flex-wrap:wrap"><span style="flex:1"><strong>القسم ٣</strong> <span class="small muted">المسمَّع للشيخ من يونس (${E.ar(rec.total)} ربع)</span></span><span class="small">${rec.empty ? 'لسه مفيش' : `دورة كل ${E.ar(rec.cycleLen)} أيام`}</span>
-          <form class="row small" data-form="qpos" style="width:100%;margin-top:4px"><label class="muted">سمّعت للشيخ لحد <select name="q"><option value="0">لسه مفيش</option>${C.map(i => `<option value="${i}" ${i === QP.ismailQ ? 'selected' : ''}>${esc(E.quartersText([i]))}</option>`).join('')}</select></label><button class="btn sm">حفظ</button></form></li>
+        <li style="flex-wrap:wrap"><span style="flex:1"><strong>القسم ٣</strong> <span class="small muted">اللي علّمت عليه «تم» في الحفظ الجديد (${E.ar(rec.total)} ربع)</span></span><span class="small">${rec.empty ? 'لسه مفيش' : `دورة كل ${E.ar(rec.cycleLen)} أيام`}</span></li>
         <li><span style="flex:1"><strong>الحفظ الجديد</strong> <span class="small muted">بعد المسمَّع لحد يس، ربع كل يوم</span></span><span class="small">خلص ${E.ar(part('c').done * QP.cPerDay)} · باقي ${E.ar(part('c').left)} ربع</span></li></ul>
         <div class="small muted" style="margin-top:6px">${x.onTrack ? 'ماشي على الخطة.' : 'متأخر: ' + x.late.map(p => p.name + ' (' + daysTxt(p.behind) + ')').join('، ') + '. اللي فات بيظهر أول حاجة في صفحة اليوم.'}</div></div>
       <div class="card printable" data-s="worship"><h2>الأيام الجاية (لو مشيت يوم بيوم)</h2><div class="tblwrap"><table><thead><tr><th>اليوم</th>${x.parts.map(p => `<th>${p.name}</th>`).join('')}</tr></thead><tbody>${next.map(r => `<tr><td>${fmtDate(r.day)}</td>${r.cells.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>
@@ -3641,7 +3645,7 @@ ${onceCard}
     const col = p => {
       const head = `<div class="qc-h"><strong>${p.name}</strong><span class="small muted">${p.sub}</span>${p.todayDone ? '' : `<span class="qc-when">🕐 ${when(p.key)}</span>`}</div>`;
       if (p.finished) return `<div class="qc is-done">${head}<div class="qc-amt">خلص الجديد لحد يس 🎉</div></div>`;
-      if (p.empty) return `<div class="qc">${head}<div class="qc-amt small muted">لسه مفيش مسمَّع للشيخ من يونس. حدده من أرشيف خطة القرآن.</div></div>`;
+      if (p.empty) return `<div class="qc">${head}<div class="qc-amt small muted">لسه مفيش. أول ما تدوس «تم» على ربع من الحفظ الجديد، بيدخل هنا.</div></div>`;
       const st = p.todayDone ? 'done' : p.behind ? 'late' : p.skipped ? 'skip' : 'open';
       const meta = p.todayDone ? `<span class="qc-tag ok">✓ تم النهارده</span>` : p.behind ? `<span class="qc-tag bad">متأخر ${daysTxt(p.behind)}: ده مقدار ${fmtDate(p.forDay)}</span>` : p.skipped ? '<span class="qc-tag">اترحل لبكرة</span>' : `${p.newCycle ? '<span class="qc-tag ok">🔁 دايرة جديدة من الأول</span>' : ''}<span class="qc-tag">مقدار النهارده${p.cycleDay ? ` · يوم ${E.ar(p.cycleDay)} من ${E.ar(p.cycleLen)}` : ''}</span>`;
       const lastH = S.qplan.hist.filter(h => h.part === p.key && h.date === d).slice(-1)[0];
@@ -4309,7 +4313,6 @@ ${onceCard}
       if (f.dataset.form === 'sleep' && !E.addSleep(S, today(), v.from, v.to)) toast('وقت النوم والصحيان لازم يختلفوا');
       if (f.dataset.form === 'st-add') E.addStep(S, f.dataset.p, v.title.trim(), v.when);
       if (f.dataset.form === 'pj-add') E.addProject(S, v.title.trim());
-      if (f.dataset.form === 'qpos') E.setIsmailQ(S, +v.q);
       save(); render(); return; }
     if (f.id === 'task-form') { e.preventDefault(); const days = new FormData(f).getAll('rd').map(Number);
       S.tasks.push({ id: E.uid('t'), title: v.title, area: v.area, duration: +v.duration, priority: +v.priority, energy: v.energy, due: v.due || null, projectRef: v.projectRef || null, recurrence: days.length ? { days } : null, status: 'active', source: 'يدوي' }); save(); render(); toast('أُضيفت المهمة'); }
